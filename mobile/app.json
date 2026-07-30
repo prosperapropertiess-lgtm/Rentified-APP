@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.prosperaproperties.rentified"
+      "bundleIdentifier": "com.prosperaproperties.rentified",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.prosperaproperties.rentified",
@@ -39,6 +42,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e364ede5-a116-4227-9aa2-fa0289e04498"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e364ede5-a116-4227-9aa2-fa0289e04498"
     }
   }
 }
