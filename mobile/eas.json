@@ -15,6 +15,10 @@
       "channel": "production",
       "ios": {
         "simulator": false
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://bsdnbmnfswwmzxqfdpsx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJzZG5ibW5mc3d3bXp4cWZkcHN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MDMwNzAsImV4cCI6MjA5NjI3OTA3MH0.W4xeIv8nUjrkYEhTEJQQUOoWXkGZr2nOSsf91bzaV2s"
       }
     }
   },
