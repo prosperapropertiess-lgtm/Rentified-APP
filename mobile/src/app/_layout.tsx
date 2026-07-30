@@ -5,7 +5,7 @@ import { useColorScheme } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
 import { useFonts } from 'expo-font';
-import { Cinzel_700Bold } from '@expo-google-fonts/cinzel';
+import { Cinzel_400Regular, Cinzel_600SemiBold, Cinzel_700Bold } from '@expo-google-fonts/cinzel';
 import { JosefinSans_400Regular, JosefinSans_700Bold } from '@expo-google-fonts/josefin-sans';
 
 import '../global.css';
@@ -19,6 +19,8 @@ function RootLayoutNav() {
   const router = useRouter();
 
   const [fontsLoaded, fontError] = useFonts({
+    Cinzel_400Regular,
+    Cinzel_600SemiBold,
     Cinzel_700Bold,
     JosefinSans_400Regular,
     JosefinSans_700Bold,
