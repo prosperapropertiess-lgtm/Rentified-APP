@@ -32,14 +32,26 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
     });
 
-    if (error) {
-      Alert.alert('Sign Up Failed', error.message);
-    } else {
+    if (authError) {
+      Alert.alert('Sign Up Failed', authError.message);
+    } else if (authData.user) {
+      // By default, create a landlord profile for new signups
+      const { error: profileError } = await supabase.from('landlords').insert({
+        user_id: authData.user.id,
+        first_name: 'New',
+        last_name: 'User',
+        email: email,
+      });
+      
+      if (profileError) {
+        console.error('Error creating landlord profile', profileError);
+      }
+      
       Alert.alert('Success', 'Account created! You can now sign in.');
     }
     setLoading(false);
