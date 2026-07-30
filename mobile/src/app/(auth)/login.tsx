@@ -58,16 +58,20 @@ export default function LoginScreen() {
   }
 
   return (
-    <View className="flex-1 justify-center px-6 bg-surface">
-      <Text className="text-2xl font-semibold text-primary mb-2">Rentified OS</Text>
-      <Text className="text-sm text-secondary mb-8">Sign in or create a new account to manage your properties</Text>
+    <View className="flex-1 justify-center px-8 bg-surface">
+      <View className="items-center mb-16 mt-[-10%]">
+        <Text className="text-5xl text-brand-500 mb-3" style={{ fontFamily: 'Cinzel_700Bold' }}>Rentified</Text>
+        <Text className="text-base text-textMain opacity-70 tracking-widest" style={{ fontFamily: 'JosefinSans_400Regular' }}>OPERATING SYSTEM</Text>
+      </View>
 
-      <View className="space-y-4">
+      <View className="space-y-6">
         <View>
-          <Text className="text-sm text-secondary mb-1">Email</Text>
+          <Text className="text-xs text-brand-500 mb-2 ml-1 tracking-widest uppercase" style={{ fontFamily: 'Cinzel_700Bold' }}>Email Address</Text>
           <TextInput 
-            className="w-full h-12 px-4 rounded-lg border border-slate-300 focus:border-brand-500 text-primary" 
-            placeholder="name@example.com" 
+            className="w-full h-16 px-6 bg-white rounded-3xl border-0 shadow-sm text-textMain"
+            style={{ fontFamily: 'JosefinSans_400Regular', fontSize: 16 }}
+            placeholder="investor@example.com" 
+            placeholderTextColor="#9ca3af"
             autoCapitalize="none"
             keyboardType="email-address"
             value={email}
@@ -77,10 +81,12 @@ export default function LoginScreen() {
         </View>
         
         <View>
-          <Text className="text-sm text-secondary mb-1">Password</Text>
+          <Text className="text-xs text-brand-500 mb-2 ml-1 tracking-widest uppercase" style={{ fontFamily: 'Cinzel_700Bold' }}>Secure Password</Text>
           <TextInput 
-            className="w-full h-12 px-4 rounded-lg border border-slate-300 focus:border-brand-500 text-primary" 
+            className="w-full h-16 px-6 bg-white rounded-3xl border-0 shadow-sm text-textMain"
+            style={{ fontFamily: 'JosefinSans_400Regular', fontSize: 16 }}
             placeholder="••••••••" 
+            placeholderTextColor="#9ca3af"
             secureTextEntry 
             value={password}
             onChangeText={setPassword}
@@ -88,25 +94,25 @@ export default function LoginScreen() {
           />
         </View>
 
-        <View className="flex-row mt-4 space-x-3">
+        <View className="mt-8 space-y-4">
           <TouchableOpacity 
-            className={`flex-1 h-12 rounded-lg items-center justify-center ${loading ? 'bg-brand-500/70' : 'bg-brand-500'}`}
+            className={`w-full h-16 rounded-full items-center justify-center shadow-lg shadow-brand-500/30 ${loading ? 'bg-brand-500/70' : 'bg-brand-500'}`}
             onPress={handleSignIn}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-medium text-base">Sign In</Text>
+              <Text className="text-white text-lg tracking-wider" style={{ fontFamily: 'Cinzel_600SemiBold' }}>SIGN IN TO PORTFOLIO</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity 
-            className="flex-1 h-12 rounded-lg border border-brand-500 items-center justify-center"
+            className="w-full h-16 rounded-full border-2 border-brand-500 items-center justify-center"
             onPress={handleSignUp}
             disabled={loading}
           >
-            <Text className="text-brand-500 font-medium text-base">Sign Up</Text>
+            <Text className="text-brand-500 text-lg tracking-wider" style={{ fontFamily: 'Cinzel_600SemiBold' }}>CREATE ACCOUNT</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -1,14 +1,7 @@
 import { Tabs } from 'expo-router';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-
-function TabBarIcon({ name, color }: { name: string; color: any }) {
-  return (
-    <View className="items-center justify-center">
-      <Text style={{ color, fontSize: 12 }}>{name}</Text>
-    </View>
-  );
-}
+import { Feather } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const { role, isLoading } = useAuth();
@@ -16,27 +9,37 @@ export default function TabLayout() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#0F766E" />
       </View>
     );
   }
 
   const screenOptions = {
     headerShown: false,
-    tabBarActiveTintColor: '#4F46E5',
-    tabBarInactiveTintColor: '#64748B',
-    tabBarStyle: {
-      backgroundColor: '#FAFAFA',
-      borderTopColor: '#E2E8F0',
+    tabBarActiveTintColor: '#0F766E', // Trust Teal
+    tabBarInactiveTintColor: '#94a3b8',
+    tabBarLabelStyle: {
+      fontFamily: 'JosefinSans_700Bold',
+      fontSize: 10,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 4,
     },
-  };
+    tabBarStyle: {
+      backgroundColor: '#ffffff',
+      borderTopColor: '#f1f5f9',
+      borderTopWidth: 1,
+      height: 60,
+      paddingTop: 8,
+    },
+  } as any;
 
   if (role === 'tenant') {
     return (
       <Tabs screenOptions={screenOptions}>
-        <Tabs.Screen name="tenant-home" options={{ title: 'My Lease', tabBarIcon: ({ color }) => <TabBarIcon name="Home" color={color} /> }} />
-        <Tabs.Screen name="tenant-payments" options={{ title: 'Payments', tabBarIcon: ({ color }) => <TabBarIcon name="Pay" color={color} /> }} />
-        <Tabs.Screen name="tenant-maintenance" options={{ title: 'Maintenance', tabBarIcon: ({ color }) => <TabBarIcon name="Fix" color={color} /> }} />
+        <Tabs.Screen name="tenant-home" options={{ title: 'Home', tabBarIcon: ({ color }) => <Feather name="home" size={20} color={color} /> }} />
+        <Tabs.Screen name="tenant-payments" options={{ title: 'Pay', tabBarIcon: ({ color }) => <Feather name="credit-card" size={20} color={color} /> }} />
+        <Tabs.Screen name="tenant-maintenance" options={{ title: 'Fix', tabBarIcon: ({ color }) => <Feather name="tool" size={20} color={color} /> }} />
         
         {/* Hide landlord tabs */}
         <Tabs.Screen name="index" options={{ href: null }} />
@@ -51,11 +54,11 @@ export default function TabLayout() {
   // Default to Landlord
   return (
     <Tabs screenOptions={screenOptions}>
-      <Tabs.Screen name="index" options={{ title: 'Dashboard', tabBarIcon: ({ color }) => <TabBarIcon name="Dash" color={color} /> }} />
-      <Tabs.Screen name="properties" options={{ title: 'Properties', tabBarIcon: ({ color }) => <TabBarIcon name="Props" color={color} /> }} />
-      <Tabs.Screen name="tenants" options={{ title: 'Tenants', tabBarIcon: ({ color }) => <TabBarIcon name="Tenants" color={color} /> }} />
-      <Tabs.Screen name="payments" options={{ title: 'Payments', tabBarIcon: ({ color }) => <TabBarIcon name="Pay" color={color} /> }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <TabBarIcon name="Prof" color={color} /> }} />
+      <Tabs.Screen name="index" options={{ title: 'Dashboard', tabBarIcon: ({ color }) => <Feather name="grid" size={20} color={color} /> }} />
+      <Tabs.Screen name="properties" options={{ title: 'Properties', tabBarIcon: ({ color }) => <Feather name="home" size={20} color={color} /> }} />
+      <Tabs.Screen name="tenants" options={{ title: 'Tenants', tabBarIcon: ({ color }) => <Feather name="users" size={20} color={color} /> }} />
+      <Tabs.Screen name="payments" options={{ title: 'Payments', tabBarIcon: ({ color }) => <Feather name="dollar-sign" size={20} color={color} /> }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: ({ color }) => <Feather name="user" size={20} color={color} /> }} />
       
       {/* Hide tenant tabs */}
       <Tabs.Screen name="tenant-home" options={{ href: null }} />

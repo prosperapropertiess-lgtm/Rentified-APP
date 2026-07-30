@@ -5,19 +5,22 @@ module.exports = {
     extend: {
       colors: {
         surface: {
-          DEFAULT: '#FAFAFA',
+          DEFAULT: '#F0FDFA', // Mint White
           dark: '#111827',
         },
         brand: {
-          500: '#4F46E5',
-          600: '#4338CA',
+          500: '#0F766E', // Trust Teal
+          600: '#14B8A6', // Vibrant Teal
         },
+        cta: '#0369A1', // Professional Blue
+        textMain: '#134E4A', // Dark Emerald
         success: '#10B981',
         warning: '#F59E0B',
         critical: '#EF4444',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['JosefinSans_400Regular', 'sans-serif'],
+        cinzel: ['Cinzel_700Bold', 'serif'],
       },
     },
   },

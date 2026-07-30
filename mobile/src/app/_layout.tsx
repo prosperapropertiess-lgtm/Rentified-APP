@@ -4,6 +4,10 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
+import { useFonts } from 'expo-font';
+import { Cinzel_700Bold } from '@expo-google-fonts/cinzel';
+import { JosefinSans_400Regular, JosefinSans_700Bold } from '@expo-google-fonts/josefin-sans';
+
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -14,8 +18,18 @@ function RootLayoutNav() {
   const segments = useSegments();
   const router = useRouter();
 
+  const [fontsLoaded, fontError] = useFonts({
+    Cinzel_700Bold,
+    JosefinSans_400Regular,
+    JosefinSans_700Bold,
+  });
+
   useEffect(() => {
-    if (isLoading) return;
+    if (fontError) throw fontError;
+  }, [fontError]);
+
+  useEffect(() => {
+    if (isLoading || !fontsLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -23,10 +37,10 @@ function RootLayoutNav() {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
-    } else if (!isLoading) {
+    } else {
       SplashScreen.hideAsync();
     }
-  }, [session, isLoading, segments]);
+  }, [session, isLoading, fontsLoaded, segments]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
