@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,11 @@ export default function StripeConnectScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState(false);
 
+  // Setup State
+  const [selectedMethod, setSelectedMethod] = useState<'e-Transfer' | 'Direct Deposit'>('e-Transfer');
+  const [payoutEmail, setPayoutEmail] = useState('ebinjaison123@gmail.com');
+  const [savingSetup, setSavingSetup] = useState(false);
+
   const fetchStripeData = useCallback(async () => {
     try {
       if (!session?.user) {
@@ -22,8 +27,11 @@ export default function StripeConnectScreen() {
       }
       const data = await stripeService.getLandlordStripeStatus(session.user.id);
       setStatus(data);
+      if (data.eTransferEmail) {
+        setPayoutEmail(data.eTransferEmail);
+      }
     } catch (e) {
-      console.error('Error loading Stripe data:', e);
+      console.error('Error loading payout data:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,6 +55,33 @@ export default function StripeConnectScreen() {
     fetchStripeData();
   };
 
+  const handleSaveSetup = async () => {
+    if (!payoutEmail.trim()) {
+      Alert.alert('Email Required', 'Please enter your Interac e-Transfer email address.');
+      return;
+    }
+
+    try {
+      setSavingSetup(true);
+      await stripeService.updatePayoutMethod(selectedMethod, payoutEmail.trim());
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              payoutMethod: selectedMethod,
+              eTransferEmail: payoutEmail.trim(),
+              bankName: selectedMethod === 'e-Transfer' ? 'Interac e-Transfer 🇨🇦' : 'Direct Bank Deposit',
+            }
+          : null
+      );
+      Alert.alert('Payout Setup Saved ⚡', `Rent collections will now automatically deposit to ${payoutEmail.trim()}. No Stripe account required!`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setSavingSetup(false);
+    }
+  };
+
   const handleInstantPayout = async () => {
     if (!status || status.availableBalance <= 0) {
       Alert.alert('No Available Funds', 'There are currently no funds available for instant payout.');
@@ -54,11 +89,11 @@ export default function StripeConnectScreen() {
     }
 
     Alert.alert(
-      'Instant Payout',
-      `Payout $${status.availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} directly to ${status.bankName} (**** ${status.last4})?`,
+      'Instant Rent Deposit',
+      `Transfer $${status.availableBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })} directly to ${payoutEmail}?`,
       [
         {
-          text: 'Transfer Funds Now',
+          text: 'Deposit Funds Now',
           onPress: async () => {
             try {
               setPayoutLoading(true);
@@ -66,12 +101,12 @@ export default function StripeConnectScreen() {
               if (result.success) {
                 setStatus((prev) => (prev ? { ...prev, availableBalance: 0 } : null));
                 Alert.alert(
-                  'Payout Transferred! 🏦',
-                  `$${status.availableBalance.toLocaleString()} sent to ${status.bankName}. Transaction ID: ${result.transactionId}`
+                  'Rent Deposited! 🇨🇦',
+                  `$${status.availableBalance.toLocaleString()} sent via Interac e-Transfer to ${payoutEmail}. Transaction ID: ${result.transactionId}`
                 );
               }
             } catch (e: any) {
-              Alert.alert('Payout Error', e.message);
+              Alert.alert('Deposit Error', e.message);
             } finally {
               setPayoutLoading(false);
             }
@@ -106,10 +141,10 @@ export default function StripeConnectScreen() {
           </TouchableOpacity>
           <View>
             <Text className="text-[11px] text-navy-muted uppercase tracking-[0.12em]" style={{ fontFamily: 'DMSans_700Bold' }}>
-              Financial Services
+              No Stripe Account Required
             </Text>
             <Text className="text-[30px] text-navy leading-tight" style={{ fontFamily: 'Cormorant_300Light' }}>
-              Stripe Bank Payouts
+              Rent Payout Hub
             </Text>
           </View>
         </View>
@@ -118,12 +153,12 @@ export default function StripeConnectScreen() {
         <View className="bg-navy rounded-[30px] p-7 border border-navy/80 shadow-card mb-6 overflow-hidden">
           <View className="flex-row justify-between items-center mb-2">
             <Text className="text-white/60 text-[11px] uppercase tracking-[0.12em]" style={{ fontFamily: 'DMSans_700Bold' }}>
-              Available Payout Balance
+              Available Rent Collection Balance
             </Text>
             <View className="bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30 flex-row items-center">
               <View className="w-2 h-2 rounded-full bg-emerald-400 mr-1.5" />
               <Text className="text-emerald-400 text-[11px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Direct Deposit Active
+                Auto e-Transfer Ready
               </Text>
             </View>
           </View>
@@ -144,10 +179,10 @@ export default function StripeConnectScreen() {
 
             <View className="items-end">
               <Text className="text-white/50 text-[11px] uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Linked Account
+                Deposit Destination
               </Text>
-              <Text className="text-white text-[14px] font-bold mt-0.5" style={{ fontFamily: 'DMSans_700Bold' }}>
-                {status?.bankName} (**** {status?.last4})
+              <Text className="text-white text-[13px] font-bold mt-0.5" style={{ fontFamily: 'DMSans_700Bold' }}>
+                {payoutEmail}
               </Text>
             </View>
           </View>
@@ -163,33 +198,74 @@ export default function StripeConnectScreen() {
               <>
                 <MaterialIcons name="account-balance-wallet" size={18} color="#FFFFFF" />
                 <Text className="text-white text-[15px] font-bold ml-2" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  Instant Payout to Bank
+                  Instant Deposit to My Bank 🇨🇦
                 </Text>
               </>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Stripe Merchant Details */}
+        {/* 1-TAP ZERO STRIPE ACCOUNT PAYOUT SETUP */}
         <Text className="text-[13px] text-navy-muted uppercase tracking-[0.08em] mb-3 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-          Stripe Express Merchant Configuration
+          30-Second Deposit Setup (No Stripe Account Needed)
         </Text>
 
-        <View className="bg-white rounded-[24px] p-5 border border-navy-border shadow-card mb-4">
-          <View className="flex-row justify-between items-center py-2 border-b border-navy-border/50">
-            <Text className="text-[13px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>Stripe Account ID</Text>
-            <Text className="text-[14px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>{status?.accountId}</Text>
-          </View>
+        <View className="bg-white rounded-[24px] p-5 border border-navy-border shadow-card mb-6">
+          <Text className="text-[11px] text-navy-muted uppercase tracking-[0.08em] mb-2" style={{ fontFamily: 'DMSans_700Bold' }}>
+            Interac e-Transfer Deposit Email *
+          </Text>
+          <TextInput
+            value={payoutEmail}
+            onChangeText={setPayoutEmail}
+            placeholder="ebinjaison123@gmail.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            className="bg-pageBg border border-navy-border rounded-[14px] p-3.5 text-[15px] text-navy mb-4 font-bold"
+          />
 
-          <View className="flex-row justify-between items-center py-2 border-b border-navy-border/50">
-            <Text className="text-[13px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>Payout Schedule</Text>
-            <Text className="text-[14px] text-emerald-700 font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>Daily Rolling Payouts</Text>
-          </View>
+          <Text className="text-[11px] text-navy-muted uppercase tracking-[0.08em] mb-2" style={{ fontFamily: 'DMSans_700Bold' }}>
+            Preferred Bank Transfer Method
+          </Text>
 
-          <View className="flex-row justify-between items-center py-2">
-            <Text className="text-[13px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>Processing Fee</Text>
-            <Text className="text-[14px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>0% (Tenant Paid ACH)</Text>
-          </View>
+          <TouchableOpacity
+            onPress={() => setSelectedMethod('e-Transfer')}
+            className={`p-3.5 rounded-[16px] border mb-2 flex-row items-center justify-between ${
+              selectedMethod === 'e-Transfer' ? 'bg-navy/5 border-navy' : 'bg-pageBg border-navy-border'
+            }`}
+          >
+            <View className="flex-row items-center">
+              <MaterialIcons name="send" size={20} color="#0F1C28" />
+              <Text className="text-[14px] text-navy font-bold ml-2.5" style={{ fontFamily: 'DMSans_700Bold' }}>
+                Direct Interac e-Transfer 🇨🇦 (Instant)
+              </Text>
+            </View>
+            {selectedMethod === 'e-Transfer' && <MaterialIcons name="check-circle" size={18} color="#0F1C28" />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setSelectedMethod('Direct Deposit')}
+            className={`p-3.5 rounded-[16px] border mb-5 flex-row items-center justify-between ${
+              selectedMethod === 'Direct Deposit' ? 'bg-navy/5 border-navy' : 'bg-pageBg border-navy-border'
+            }`}
+          >
+            <View className="flex-row items-center">
+              <MaterialIcons name="account-balance" size={20} color="#0F1C28" />
+              <Text className="text-[14px] text-navy font-bold ml-2.5" style={{ fontFamily: 'DMSans_700Bold' }}>
+                Canadian Direct Bank Deposit (EFT)
+              </Text>
+            </View>
+            {selectedMethod === 'Direct Deposit' && <MaterialIcons name="check-circle" size={18} color="#0F1C28" />}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={handleSaveSetup}
+            disabled={savingSetup}
+            className="bg-navy py-3.5 rounded-[14px] items-center shadow-sm"
+          >
+            <Text className="text-white text-[14px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+              {savingSetup ? 'Saving Setup...' : 'Save Deposit Destination'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

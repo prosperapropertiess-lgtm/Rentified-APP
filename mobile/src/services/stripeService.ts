@@ -8,6 +8,8 @@ export type StripeAccountStatus = {
   pendingBalance: number;
   bankName?: string;
   last4?: string;
+  payoutMethod: 'e-Transfer' | 'Direct Deposit';
+  eTransferEmail?: string;
 };
 
 export const stripeService = {
@@ -22,12 +24,14 @@ export const stripeService = {
       if (!landlord || !landlord.stripe_customer_id) {
         return {
           connected: true,
-          accountId: 'acct_1N8x92KLS9104A',
+          accountId: 'express_rentified_ebin',
           payoutsEnabled: true,
           availableBalance: 9950.0,
           pendingBalance: 2450.0,
-          bankName: 'Royal Bank of Canada (RBC)',
-          last4: '4821',
+          bankName: 'Interac e-Transfer 🇨🇦',
+          last4: '123',
+          payoutMethod: 'e-Transfer',
+          eTransferEmail: 'ebinjaison123@gmail.com',
         };
       }
 
@@ -37,33 +41,36 @@ export const stripeService = {
         payoutsEnabled: true,
         availableBalance: 9950.0,
         pendingBalance: 2450.0,
-        bankName: 'Royal Bank of Canada (RBC)',
-        last4: '4821',
+        bankName: 'Interac e-Transfer 🇨🇦',
+        last4: '123',
+        payoutMethod: 'e-Transfer',
+        eTransferEmail: 'ebinjaison123@gmail.com',
       };
     } catch (e) {
       console.error('Error fetching Stripe status:', e);
       return {
         connected: true,
-        accountId: 'acct_1N8x92KLS9104A',
+        accountId: 'express_rentified_ebin',
         payoutsEnabled: true,
         availableBalance: 9950.0,
         pendingBalance: 2450.0,
-        bankName: 'Royal Bank of Canada (RBC)',
-        last4: '4821',
+        bankName: 'Interac e-Transfer 🇨🇦',
+        last4: '123',
+        payoutMethod: 'e-Transfer',
+        eTransferEmail: 'ebinjaison123@gmail.com',
       };
     }
   },
 
-  async initiateConnectOnboarding(): Promise<string> {
-    await new Promise((res) => setTimeout(res, 800));
-    return 'https://connect.stripe.com/express/oauth/authorize?response_type=code&client_id=ca_123';
+  async updatePayoutMethod(method: 'e-Transfer' | 'Direct Deposit', emailOrBank: string): Promise<void> {
+    await new Promise((res) => setTimeout(res, 600));
   },
 
   async requestInstantPayout(amount: number): Promise<{ success: boolean; transactionId: string }> {
-    await new Promise((res) => setTimeout(res, 1000));
+    await new Promise((res) => setTimeout(res, 800));
     return {
       success: true,
-      transactionId: `po_${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
+      transactionId: `et_${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
     };
   },
 };
