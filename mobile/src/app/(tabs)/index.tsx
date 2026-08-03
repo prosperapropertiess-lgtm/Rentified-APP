@@ -15,7 +15,7 @@ type PendingTask = {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, role, setRole } = useAuth();
   const [totalRent] = useState(12850);
   const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,12 +72,28 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-pageBg relative">
       <ScrollView className="flex-1 z-10 px-6 pt-16 pb-28" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Header */}
-        <View className="mb-8 flex-row justify-between items-center">
+        {/* Header with 1-Tap Role Testing Switcher */}
+        <View className="mb-6 flex-row justify-between items-center">
           <View>
-            <Text className="text-[12px] text-navy-muted uppercase tracking-[0.12em]" style={{ fontFamily: 'DMSans_700Bold' }}>
-              Command Center
-            </Text>
+            <View className="flex-row items-center mb-0.5">
+              <Text className="text-[11px] text-navy-muted uppercase tracking-[0.12em] mr-2" style={{ fontFamily: 'DMSans_700Bold' }}>
+                Command Center
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  const newRole = role === 'landlord' ? 'tenant' : 'landlord';
+                  setRole(newRole);
+                  if (newRole === 'tenant') {
+                    router.push('/tenant-home');
+                  }
+                }}
+                className="bg-navy/10 px-2.5 py-0.5 rounded-full border border-navy/20"
+              >
+                <Text className="text-[10px] text-navy font-bold uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
+                  {role === 'landlord' ? '⚡ Landlord Mode' : '🔑 Tenant Mode'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Text className="text-[34px] text-navy leading-tight mt-0.5" style={{ fontFamily: 'Cormorant_300Light' }}>
               Welcome back
             </Text>
@@ -91,6 +107,38 @@ export default function HomeScreen() {
             <View className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-burgundy border-2 border-white" />
           </TouchableOpacity>
         </View>
+
+        {/* ----------------------------------------------------------------- */}
+        {/* TENANT PORTAL QUICK SWITCHER CARD */}
+        {/* ----------------------------------------------------------------- */}
+        <TouchableOpacity
+          onPress={() => {
+            setRole('tenant');
+            router.push('/tenant-home');
+          }}
+          className="bg-gradient-to-r from-purple-900 to-indigo-900 bg-purple-950 rounded-[22px] p-4 mb-6 border border-purple-800 shadow-card flex-row items-center justify-between"
+          activeOpacity={0.85}
+        >
+          <View className="flex-row items-center flex-1 mr-2">
+            <View className="w-11 h-11 rounded-[14px] bg-white/10 items-center justify-center mr-3">
+              <MaterialIcons name="vpn-key" size={22} color="#E9D5FF" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-[15px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+                🔑 Tenant Portal Experience
+              </Text>
+              <Text className="text-purple-200 text-[12px]" style={{ fontFamily: 'DMSans_400Regular' }}>
+                Tap to test rent payment, maintenance requests & lease docs as a tenant
+              </Text>
+            </View>
+          </View>
+
+          <View className="bg-white/15 px-3 py-1.5 rounded-full flex-row items-center">
+            <Text className="text-white text-[11px] font-bold uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
+              Switch ➔
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* Revenue Hero Card */}
         <View className="bg-navy rounded-[28px] p-7 mb-6 shadow-card relative overflow-hidden">
