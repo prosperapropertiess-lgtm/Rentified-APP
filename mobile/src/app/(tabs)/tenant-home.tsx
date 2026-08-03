@@ -138,13 +138,30 @@ export default function TenantHomeScreen() {
                 <MaterialIcons name="folder" size={22} color="#2563EB" />
               </View>
               <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Lease Vault 📁
+                My Vault
               </Text>
               <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                View Lease & Receipts
+                Lease PDF & Tax Receipts
               </Text>
             </TouchableOpacity>
 
+            <TouchableOpacity
+              onPress={() => router.push('/tenant-perks')}
+              className="flex-1 bg-white p-5 rounded-[22px] border border-navy-border shadow-card items-start"
+            >
+              <View className="w-11 h-11 rounded-[14px] bg-amber-500/10 items-center justify-center mb-3">
+                <MaterialIcons name="stars" size={22} color="#D97706" />
+              </View>
+              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+                VIP Perks
+              </Text>
+              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
+                Rewards & Credit Boost
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="flex-row gap-3 mb-6">
             <TouchableOpacity
               onPress={() => setRole('landlord')}
               className="flex-1 bg-navy/5 p-5 rounded-[22px] border border-navy/20 items-start"

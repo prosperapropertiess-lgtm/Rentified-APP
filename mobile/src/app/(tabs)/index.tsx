@@ -229,6 +229,58 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* Landlord Operating System Shortcuts Grid */}
+        <Text className="text-[13px] text-navy-muted uppercase tracking-[0.08em] mb-3 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
+          Automation Center & Tax Tools
+        </Text>
+
+        <View className="flex-row gap-2.5 mb-8">
+          <TouchableOpacity
+            onPress={() => router.push('/lease-renewal')}
+            className="flex-1 bg-white p-4 rounded-[20px] border border-navy-border shadow-card items-start"
+          >
+            <View className="w-10 h-10 rounded-[12px] bg-purple-500/10 items-center justify-center mb-2">
+              <MaterialIcons name="autorenew" size={20} color="#7C3AED" />
+            </View>
+            <Text className="text-[13px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+              Lease Renew
+            </Text>
+            <Text className="text-[10px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>
+              Ontario Form
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/tax-export')}
+            className="flex-1 bg-white p-4 rounded-[20px] border border-navy-border shadow-card items-start"
+          >
+            <View className="w-10 h-10 rounded-[12px] bg-emerald-500/10 items-center justify-center mb-2">
+              <MaterialIcons name="description" size={20} color="#059669" />
+            </View>
+            <Text className="text-[13px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+              T776 Tax
+            </Text>
+            <Text className="text-[10px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>
+              CRA Report
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/contractor-dispatch')}
+            className="flex-1 bg-white p-4 rounded-[20px] border border-navy-border shadow-card items-start"
+          >
+            <View className="w-10 h-10 rounded-[12px] bg-amber-500/10 items-center justify-center mb-2">
+              <MaterialIcons name="build" size={20} color="#D97706" />
+            </View>
+            <Text className="text-[13px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
+              Contractors
+            </Text>
+            <Text className="text-[10px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>
+              24/7 Dispatch
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Action Required Section */}
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-[20px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>

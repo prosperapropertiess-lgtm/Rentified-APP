@@ -313,7 +313,7 @@ export default function LandlordDocumentsScreen() {
                       {doc.title}
                     </Text>
                     <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                      {doc.properties?.name || 'General'} • {format(new Date(doc.created_at), 'MMM d, yyyy')}
+                      {doc.properties?.name || 'General'} • {doc.created_at ? format(new Date(doc.created_at), 'MMM d, yyyy') : 'Recent'}
                     </Text>
                   </View>
                 </View>
