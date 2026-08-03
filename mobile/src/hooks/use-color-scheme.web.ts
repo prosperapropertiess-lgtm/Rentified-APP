@@ -8,7 +8,15 @@ export function useColorScheme() {
   const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    setHasHydrated(true);
+    let ignore = false;
+    Promise.resolve().then(() => {
+      if (!ignore) {
+        setHasHydrated(true);
+      }
+    });
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const colorScheme = useRNColorScheme();

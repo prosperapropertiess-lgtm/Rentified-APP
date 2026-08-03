@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -18,14 +18,12 @@ export default function TenantsScreen() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchTenants();
-  }, [session]);
-
-  async function fetchTenants() {
+  const fetchTenants = useCallback(async () => {
     try {
-      setLoading(true);
-      if (!session?.user) return;
+      if (!session?.user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('tenants')
@@ -43,7 +41,19 @@ export default function TenantsScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [session]);
+
+  useEffect(() => {
+    let ignore = false;
+    Promise.resolve().then(() => {
+      if (!ignore) {
+        fetchTenants();
+      }
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [fetchTenants]);
 
   if (loading) {
     return (

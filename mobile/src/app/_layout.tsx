@@ -42,7 +42,7 @@ function RootLayoutNav() {
     } else {
       SplashScreen.hideAsync();
     }
-  }, [session, isLoading, fontsLoaded, segments]);
+  }, [session, isLoading, fontsLoaded, segments, router]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
