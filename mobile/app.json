@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rentified OS",
     "slug": "rentified-os",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rentified",
@@ -10,12 +10,14 @@
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.prosperaproperties.rentified",
+      "buildNumber": "10",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.prosperaproperties.rentified",
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/icon.png",
