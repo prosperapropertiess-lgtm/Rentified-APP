@@ -16,7 +16,7 @@ export default function StripeConnectScreen() {
 
   // Setup State
   const [selectedMethod, setSelectedMethod] = useState<'e-Transfer' | 'Direct Deposit'>('e-Transfer');
-  const [payoutEmail, setPayoutEmail] = useState('ebinjaison123@gmail.com');
+  const [payoutEmail, setPayoutEmail] = useState('ebinjaison02@gmail.com');
   const [savingSetup, setSavingSetup] = useState(false);
 
   const fetchStripeData = useCallback(async () => {
@@ -217,7 +217,7 @@ export default function StripeConnectScreen() {
           <TextInput
             value={payoutEmail}
             onChangeText={setPayoutEmail}
-            placeholder="ebinjaison123@gmail.com"
+            placeholder="ebinjaison02@gmail.com"
             keyboardType="email-address"
             autoCapitalize="none"
             className="bg-pageBg border border-navy-border rounded-[14px] p-3.5 text-[15px] text-navy mb-4 font-bold"

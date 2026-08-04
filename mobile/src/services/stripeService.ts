@@ -31,7 +31,7 @@ export const stripeService = {
           bankName: 'Interac e-Transfer 🇨🇦',
           last4: '123',
           payoutMethod: 'e-Transfer',
-          eTransferEmail: 'ebinjaison123@gmail.com',
+          eTransferEmail: 'ebinjaison02@gmail.com',
         };
       }
 
@@ -44,7 +44,7 @@ export const stripeService = {
         bankName: 'Interac e-Transfer 🇨🇦',
         last4: '123',
         payoutMethod: 'e-Transfer',
-        eTransferEmail: 'ebinjaison123@gmail.com',
+        eTransferEmail: 'ebinjaison02@gmail.com',
       };
     } catch (e) {
       console.error('Error fetching Stripe status:', e);
@@ -57,7 +57,7 @@ export const stripeService = {
         bankName: 'Interac e-Transfer 🇨🇦',
         last4: '123',
         payoutMethod: 'e-Transfer',
-        eTransferEmail: 'ebinjaison123@gmail.com',
+        eTransferEmail: 'ebinjaison02@gmail.com',
       };
     }
   },

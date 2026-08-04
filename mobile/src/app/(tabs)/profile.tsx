@@ -9,7 +9,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { session, role, setRole } = useAuth();
 
-  const userEmail = session?.user?.email || 'ebinjaison123@gmail.com';
+  const userEmail = session?.user?.email || 'ebinjaison02@gmail.com';
   const userName = userEmail.split('@')[0].toUpperCase();
 
   const handleSignOut = async () => {
