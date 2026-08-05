@@ -121,6 +121,7 @@ export const stripeService = {
       currency: 'cad',
       'receipt_email': email,
       description: description,
+      'statement_descriptor': 'PROSPERA RENT',
       'payment_method_types[0]': 'card',
     });
 
