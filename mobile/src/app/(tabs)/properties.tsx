@@ -63,6 +63,7 @@ export default function PropertiesScreen() {
       const { data, error } = await supabase
         .from('properties')
         .select('*')
+        .eq('landlord_id', session.user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -130,13 +131,8 @@ export default function PropertiesScreen() {
 
     try {
       setSubmitting(true);
-      const { data: landlord } = await supabase
-        .from('landlords')
-        .select('id')
-        .eq('user_id', session?.user?.id)
-        .maybeSingle();
-
-      const landlordId = landlord?.id || null;
+      // landlords.id = auth.users.id in Prospera schema
+      const landlordId = session?.user?.id || null;
 
       const { data, error } = await supabase
         .from('properties')

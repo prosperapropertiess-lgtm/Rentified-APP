@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { Skeleton } from '../../components/SkeletonLoader';
 
+// Prospera schema: payments table (no payment_method column, uses notes)
 type Invoice = {
   id: string;
   amount: number;
@@ -13,7 +14,8 @@ type Invoice = {
   status: 'paid' | 'pending' | 'overdue';
   created_at: string;
   paid_at?: string | null;
-  payment_method?: string | null;
+  notes?: string | null;
+  stripe_payment_intent_id?: string | null;
 };
 
 export default function TenantPaymentsScreen() {
@@ -45,7 +47,7 @@ export default function TenantPaymentsScreen() {
 
       if (tenant) {
         const { data: invoiceData } = await supabase
-          .from('invoices')
+          .from('payments')
           .select('*')
           .eq('tenant_id', tenant.id)
           .order('due_date', { ascending: false });
@@ -91,7 +93,7 @@ export default function TenantPaymentsScreen() {
         status: 'paid',
         created_at: now.toISOString(),
         paid_at: now.toISOString(),
-        payment_method: selectedMethod === 'apple_pay' ? 'Apple Pay' : selectedMethod === 'card' ? 'Visa •••• 4242' : 'Interac e-Transfer',
+        notes: selectedMethod === 'apple_pay' ? 'Apple Pay' : selectedMethod === 'card' ? 'Visa •••• 4242' : 'Interac e-Transfer',
       };
 
       // Try updating database if tenant exists
@@ -102,13 +104,14 @@ export default function TenantPaymentsScreen() {
         .maybeSingle();
 
       if (tenant) {
-        await supabase.from('invoices').insert({
+        await supabase.from('payments').insert({
           tenant_id: tenant.id,
           amount: 2450,
+          type: 'rent',
           due_date: format(now, 'yyyy-MM-01'),
           status: 'paid',
           paid_at: now.toISOString(),
-          payment_method: paidInvoice.payment_method,
+          notes: paidInvoice.notes,
         });
       }
 
@@ -244,7 +247,7 @@ export default function TenantPaymentsScreen() {
                       Rent Payment
                     </Text>
                     <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                      {inv.payment_method || 'Electronic Transfer'} • {format(new Date(inv.created_at), 'MMM d, yyyy')}
+                      {inv.notes || 'Electronic Transfer'} • {format(new Date(inv.created_at), 'MMM d, yyyy')}
                     </Text>
                   </View>
                 </View>
@@ -401,7 +404,7 @@ export default function TenantPaymentsScreen() {
 
                 <View className="flex-row justify-between py-2 border-b border-navy-border/60">
                   <Text className="text-[13px] text-navy-muted" style={{ fontFamily: 'DMSans_400Regular' }}>Payment Method</Text>
-                  <Text className="text-[13px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>{receiptInvoice.payment_method || 'Apple Pay'}</Text>
+                  <Text className="text-[13px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>{receiptInvoice.notes || 'Apple Pay'}</Text>
                 </View>
 
                 <View className="flex-row justify-between py-2">

@@ -27,18 +27,19 @@ export default function HomeScreen() {
         setLoading(true);
         if (!session?.user) return;
 
-        // Fetch Landlord Profile
+        // Fetch Landlord Profile — landlords.id = auth.users.id in Prospera schema
         const { data: landlord } = await supabase
           .from('landlords')
           .select('id')
-          .eq('user_id', session.user.id)
+          .eq('id', session.user.id)
           .maybeSingle();
 
         if (landlord) {
-          // Fetch Total Rent / Maintenance Tasks
+          // Fetch pending maintenance requests for this landlord
           const { data: tickets } = await supabase
-            .from('maintenance_tickets')
+            .from('maintenance_requests')
             .select('*')
+            .eq('landlord_id', landlord.id)
             .eq('status', 'submitted');
 
           if (tickets) {

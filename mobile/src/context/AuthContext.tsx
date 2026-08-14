@@ -34,8 +34,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchUserRole = useCallback(async (userId: string) => {
     try {
-      // 1. Check if Landlord
-      const { data: landlord } = await supabase.from('landlords').select('id').eq('user_id', userId).maybeSingle();
+      // 1. Check if Landlord — landlords.id = auth.users.id (Prospera schema)
+      const { data: landlord } = await supabase.from('landlords').select('id').eq('id', userId).maybeSingle();
       if (landlord) {
         setRoleState('landlord');
         return;

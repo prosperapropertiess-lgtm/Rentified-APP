@@ -40,11 +40,10 @@ export default function LoginScreen() {
     if (authError) {
       Alert.alert('Sign Up Failed', authError.message);
     } else if (authData.user) {
-      // By default, create a landlord profile for new signups
+      // Create landlord profile — landlords.id = auth.users.id in Prospera schema
       const { error: profileError } = await supabase.from('landlords').insert({
-        user_id: authData.user.id,
-        first_name: 'New',
-        last_name: 'User',
+        id: authData.user.id,
+        full_name: email.split('@')[0],
         email: email,
       });
       

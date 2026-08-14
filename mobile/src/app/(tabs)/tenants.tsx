@@ -3,14 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
+// Prospera schema: tenants table uses full_name and status
 type Tenant = {
   id: string;
-  first_name: string;
-  last_name: string;
+  full_name: string;
   email: string;
   phone: string | null;
-  invite_accepted: boolean;
-  payment_streak: number;
+  status: string | null;
 };
 
 export default function TenantsScreen() {
@@ -81,39 +80,43 @@ export default function TenantsScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          tenants.map((tenant) => (
-            <TouchableOpacity 
-              key={tenant.id} 
-              className="bg-white border border-slate-200 rounded-xl mb-4 p-4 shadow-sm flex-row items-center justify-between"
-              activeOpacity={0.7}
-            >
-              <View className="flex-1">
-                <Text className="text-lg font-semibold text-primary mb-1">
-                  {tenant.first_name} {tenant.last_name}
-                </Text>
-                <Text className="text-sm text-secondary mb-2">{tenant.email}</Text>
-                
-                <View className="flex-row items-center">
-                  <View className={`px-2 py-1 rounded ${tenant.invite_accepted ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-                    <Text className={`text-xs font-medium ${tenant.invite_accepted ? 'text-emerald-700' : 'text-amber-700'}`}>
-                      {tenant.invite_accepted ? 'Active' : 'Pending Invite'}
-                    </Text>
+          tenants.map((tenant) => {
+            const initials = tenant.full_name
+              .split(' ')
+              .map((n) => n[0])
+              .slice(0, 2)
+              .join('');
+            const isActive = tenant.status === 'active';
+
+            return (
+              <TouchableOpacity
+                key={tenant.id}
+                className="bg-white border border-slate-200 rounded-xl mb-4 p-4 shadow-sm flex-row items-center justify-between"
+                activeOpacity={0.7}
+              >
+                <View className="flex-1">
+                  <Text className="text-lg font-semibold text-primary mb-1">
+                    {tenant.full_name}
+                  </Text>
+                  <Text className="text-sm text-secondary mb-2">{tenant.email}</Text>
+
+                  <View className="flex-row items-center">
+                    <View className={`px-2 py-1 rounded ${isActive ? 'bg-emerald-100' : 'bg-amber-100'}`}>
+                      <Text className={`text-xs font-medium ${isActive ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        {isActive ? 'Active' : 'Pending Invite'}
+                      </Text>
+                    </View>
                   </View>
-                  {tenant.payment_streak > 0 && (
-                    <Text className="text-xs font-medium text-emerald-600 ml-3">
-                      🔥 {tenant.payment_streak}mo streak
-                    </Text>
-                  )}
                 </View>
-              </View>
-              
-              <View className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center">
-                <Text className="text-brand-500 font-semibold text-lg">
-                  {tenant.first_name[0]}{tenant.last_name[0]}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))
+
+                <View className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center">
+                  <Text className="text-brand-500 font-semibold text-lg">
+                    {initials}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </View>
     </ScrollView>

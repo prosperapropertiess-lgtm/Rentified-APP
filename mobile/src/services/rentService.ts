@@ -4,18 +4,11 @@ import { PropertyCollectionItem, TenantCollectionItem, PaymentMethodType, Paymen
 export const rentService = {
   async fetchCollectionSummary(userId: string) {
     try {
-      const { data: landlord } = await supabase
-        .from('landlords')
-        .select('id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (!landlord) return null;
-
+      // landlords.id = auth.users.id in Prospera schema
       const { data: properties } = await supabase
         .from('properties')
         .select('id, name, address')
-        .eq('landlord_id', landlord.id);
+        .eq('landlord_id', userId);
 
       return properties;
     } catch (e) {

@@ -59,7 +59,7 @@ export default function TenantMaintenanceScreen() {
 
       if (tenant) {
         const { data: ticketData } = await supabase
-          .from('maintenance_tickets')
+          .from('maintenance_requests')
           .select('*')
           .eq('tenant_id', tenant.id)
           .order('created_at', { ascending: false });
@@ -110,7 +110,7 @@ export default function TenantMaintenanceScreen() {
         .eq('user_id', session?.user?.id)
         .maybeSingle();
 
-      const { error } = await supabase.from('maintenance_tickets').insert({
+      const { error } = await supabase.from('maintenance_requests').insert({
         tenant_id: tenant?.id,
         unit_id: tenant?.unit_id,
         title: title.trim(),
