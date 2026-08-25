@@ -4,6 +4,7 @@ import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
+import { money } from '../../lib/format';
 
 interface LeaseInfo {
   id: string;
@@ -101,8 +102,8 @@ export default function OwnerDashboard() {
         <View className="flex-row justify-between items-center mb-10">
           <View>
             <Text className="text-white/60 font-sans text-[14px] uppercase tracking-widest mb-1">Collected This Month</Text>
-            <Text className="text-white font-sansBold text-[44px] tracking-tighter">${metrics.revenue.toLocaleString()}</Text>
-            <Text className="text-white/50 font-sans text-[13px] mt-1">${metrics.expectedRent.toLocaleString()}/mo expected across all leases</Text>
+            <Text className="text-white font-sansBold text-[44px] tracking-tighter">${money(metrics.revenue)}</Text>
+            <Text className="text-white/50 font-sans text-[13px] mt-1">${money(metrics.expectedRent)}/mo expected across all leases</Text>
           </View>
           <View className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
             <Feather name="bell" size={20} color="#FFFFFF" />
@@ -141,7 +142,7 @@ export default function OwnerDashboard() {
             {properties.map((property) => (
               <TouchableOpacity
                 key={property.id}
-                onPress={() => router.push('/(tabs)/properties')}
+                onPress={() => router.push(`/property/${property.id}`)}
                 className="bg-card rounded-[24px] p-5 mb-5 shadow-sm border border-navy/5 active:bg-navy/5"
               >
                 <View className="flex-row items-center justify-between mb-4">
@@ -173,7 +174,7 @@ export default function OwnerDashboard() {
                             </Text>
                           </View>
                           <Text className="text-navy font-sansBold text-[14px]">
-                            ${Number(lease?.rent_amount ?? unit.rent_amount ?? 0).toLocaleString()}/mo
+                            ${money(lease?.rent_amount ?? unit.rent_amount)}/mo
                           </Text>
                         </View>
                       );
@@ -203,7 +204,7 @@ export default function OwnerDashboard() {
                   <Text className="text-navy font-sansBold text-[16px]">{payment.tenants?.first_name} {payment.tenants?.last_name}</Text>
                   <Text className="text-navy-muted font-sans text-[13px] mt-0.5">Rent Payment</Text>
                 </View>
-                <Text className="text-emerald-700 font-sansBold text-[16px]">+${Number(payment.amount).toLocaleString()}</Text>
+                <Text className="text-emerald-700 font-sansBold text-[16px]">+${money(payment.amount)}</Text>
               </View>
             ))}
           </View>

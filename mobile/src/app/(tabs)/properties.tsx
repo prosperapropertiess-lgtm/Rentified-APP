@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 export default function PropertiesList() {
   const { user, profileId } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
 
@@ -58,7 +60,11 @@ export default function PropertiesList() {
             const isFull = totalUnits > 0 && occupiedUnits === totalUnits;
 
             return (
-              <TouchableOpacity key={prop.id} className="bg-card rounded-[28px] p-5 mb-4 shadow-sm flex-row items-center active:scale-[0.98] transition-transform">
+              <TouchableOpacity
+                key={prop.id}
+                onPress={() => router.push(`/property/${prop.id}`)}
+                className="bg-card rounded-[28px] p-5 mb-4 shadow-sm flex-row items-center active:scale-[0.98] transition-transform"
+              >
                 <View className="w-16 h-16 bg-navy/5 rounded-[20px] items-center justify-center mr-5">
                   <Feather name="home" size={24} color="#1F2F3A" style={{ opacity: 0.8 }} />
                 </View>

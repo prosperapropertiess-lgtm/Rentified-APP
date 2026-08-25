@@ -3,6 +3,7 @@ import { View, Text, TextInput, FlatList, ActivityIndicator } from 'react-native
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { money } from '../../lib/format';
 
 interface TenantRow {
   id: string;
@@ -112,7 +113,7 @@ export default function TenantsScreen() {
               </View>
               <View className="items-end">
                 <Text className="text-base font-sansBold text-navy mb-2">
-                  {lease?.rent_amount ? `$${Number(lease.rent_amount).toLocaleString()}` : '—'}
+                  {lease?.rent_amount ? `$${money(lease.rent_amount)}` : '—'}
                 </Text>
                 <View className={`px-3 py-1.5 rounded-full ${lease?.status === 'active' ? 'bg-emerald-500/10' : 'bg-navy/5'}`}>
                   <Text className={`text-xs font-sansBold ${lease?.status === 'active' ? 'text-emerald-700' : 'text-navy-muted'}`}>
