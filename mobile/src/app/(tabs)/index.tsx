@@ -51,7 +51,7 @@ export default function OwnerDashboard() {
           .from('maintenance_requests')
           .select('id', { count: 'exact', head: true })
           .eq('landlord_id', profileId)
-          .neq('status', 'resolved'),
+          .not('status', 'in', '(resolved,closed)'),
         supabase
           .from('properties')
           .select(`
@@ -118,13 +118,13 @@ export default function OwnerDashboard() {
             </View>
             <Text className="text-white font-sansBold text-[22px]">{occupiedUnits}/{totalUnits}</Text>
           </View>
-          <View className="bg-burgundy flex-1 rounded-3xl p-4 border border-white/10">
+          <TouchableOpacity onPress={() => router.push('/maintenance')} className="bg-burgundy flex-1 rounded-3xl p-4 border border-white/10">
             <View className="flex-row items-center mb-2">
               <MaterialIcons name="build" size={16} color="#FFFFFF" style={{ opacity: 0.8 }} />
               <Text className="text-white/80 font-sans ml-2 text-[13px]">Requests</Text>
             </View>
             <Text className="text-white font-sansBold text-[22px]">{metrics.openIssues}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       </View>
 
