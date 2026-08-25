@@ -1,139 +1,119 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
+interface Identity {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  notification_prefs?: { push?: boolean; email?: boolean } | null;
+}
+
 export default function ProfileScreen() {
-  const router = useRouter();
-  const { session, role, setRole } = useAuth();
+  const { role, profileId } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [notifications, setNotifications] = useState(true);
+  const [emails, setEmails] = useState(false);
 
-  const userEmail = session?.user?.email || 'ebinjaison02@gmail.com';
-  const userName = userEmail.split('@')[0].toUpperCase();
-
-  const handleSignOut = async () => {
+  const fetchIdentity = useCallback(async () => {
+    if (!profileId || !role) return;
     try {
-      await supabase.auth.signOut();
-      router.replace('/(auth)/login');
-    } catch (e: any) {
-      Alert.alert('Sign Out Error', e.message);
+      const table = role === 'owner' ? 'landlords' : 'tenants';
+      const columns = role === 'owner'
+        ? 'first_name, last_name, email, phone, notification_prefs'
+        : 'first_name, last_name, email, phone';
+      const { data } = await supabase.from(table).select(columns).eq('id', profileId).single();
+
+      if (data) {
+        setIdentity(data as unknown as Identity);
+        const prefs = (data as unknown as Identity).notification_prefs;
+        if (prefs) {
+          setNotifications(prefs.push ?? true);
+          setEmails(prefs.email ?? false);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [profileId, role]);
+
+  useEffect(() => { setTimeout(() => fetchIdentity(), 0); }, [fetchIdentity]);
+
+  async function updatePrefs(next: { push?: boolean; email?: boolean }) {
+    if (role !== 'owner' || !profileId) return; // notification_prefs only exists on landlords today
+    const merged = { push: notifications, email: emails, ...next };
+    await supabase.from('landlords').update({ notification_prefs: merged }).eq('id', profileId);
+  }
+
+  const name = `${identity?.first_name ?? ''} ${identity?.last_name ?? ''}`.trim() || 'Your account';
+  const roleLabel = role === 'owner' ? 'Owner' : role === 'tenant' ? 'Tenant' : '';
+
+  if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
   return (
-    <View className="flex-1 bg-pageBg relative">
-      {/* Ambient Background Glow */}
-      <View
-        className="absolute w-[450px] h-[450px] rounded-full"
-        style={{ top: -100, right: -120, zIndex: 0, backgroundColor: 'rgba(15, 28, 40, 0.04)' }}
-      />
-
-      <ScrollView className="flex-1 z-10" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Header */}
-        <View className="px-6 pt-16 pb-4 border-b border-navy-border/50">
-          <Text className="text-[12px] text-navy-muted uppercase tracking-[0.12em]" style={{ fontFamily: 'DMSans_700Bold' }}>
-            Account Settings
-          </Text>
-          <Text className="text-[34px] text-navy leading-tight mt-0.5" style={{ fontFamily: 'Cormorant_300Light' }}>
-            Profile & Vault
-          </Text>
+    <ScrollView className="flex-1 bg-pageBg">
+      <View className="pt-16 pb-8 px-6 items-center bg-card border-b border-navy-border">
+        <View className="w-24 h-24 rounded-full bg-pageBg border-2 border-navy-border items-center justify-center mb-5 overflow-hidden">
+          <Feather name="user" size={40} color="#1F2F3A" />
         </View>
+        <Text className="text-2xl font-sansBold text-navy">{name}</Text>
+        {roleLabel ? <Text className="text-base font-sans text-navy-muted mt-1.5">{roleLabel}</Text> : null}
+      </View>
 
-        <View className="px-6 mt-6">
-          {/* User Profile Card */}
-          <View className="bg-white rounded-[24px] p-6 border border-navy-border shadow-card mb-6 flex-row items-center">
-            <View className="w-16 h-16 rounded-full bg-navy items-center justify-center mr-4 shadow-sm">
-              <Text className="text-white text-[24px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                {userName[0]}
-              </Text>
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-[20px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Ebin Jaison
-              </Text>
-              <Text className="text-[13px] text-navy-muted mb-2" style={{ fontFamily: 'DMSans_400Regular' }}>
-                {userEmail}
-              </Text>
-
-              <View className="flex-row items-center">
-                <View className="bg-navy/10 px-2.5 py-0.5 rounded-full border border-navy/20 mr-2">
-                  <Text className="text-[11px] text-navy font-bold uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
-                    {role === 'landlord' ? '⚡ Landlord Admin' : '🔑 Verified Tenant'}
-                  </Text>
-                </View>
-              </View>
-            </View>
+      <View className="p-6">
+        <Text className="text-sm font-sansBold text-navy-muted uppercase mb-3 ml-1">Personal Information</Text>
+        <View className="bg-card rounded-2xl border border-navy-border overflow-hidden mb-9">
+          <View className="px-5 py-5 border-b border-navy-border flex-row justify-between items-center">
+            <Text className="text-base font-sans text-navy">Email</Text>
+            <Text className="text-base font-sans text-navy-muted">{identity?.email || '—'}</Text>
           </View>
-
-          {/* Interactive Role Switcher Pill */}
-          <Text className="text-[12px] text-navy-muted uppercase tracking-[0.08em] mb-2 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-            Testing Role Mode Switcher
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => setRole(role === 'landlord' ? 'tenant' : 'landlord')}
-            className="bg-navy p-5 rounded-[22px] shadow-card mb-6 flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center flex-1 pr-2">
-              <View className="w-11 h-11 rounded-[14px] bg-white/10 items-center justify-center mr-3.5">
-                <MaterialIcons name="swap-horiz" size={24} color="#FFFFFF" />
-              </View>
-              <View>
-                <Text className="text-white text-[16px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  Switch to {role === 'landlord' ? 'Tenant Portal Mode' : 'Landlord Mode'}
-                </Text>
-                <Text className="text-white/70 text-[12px] mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                  Currently viewing app as {role === 'landlord' ? 'Landlord' : 'Tenant'}
-                </Text>
-              </View>
-            </View>
-            <MaterialIcons name="chevron-right" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* Account Options */}
-          <Text className="text-[12px] text-navy-muted uppercase tracking-[0.08em] mb-2 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-            App Options & Vault
-          </Text>
-
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/documents')}
-            className="bg-white p-4 rounded-[18px] border border-navy-border shadow-card mb-3 flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center">
-              <MaterialIcons name="folder" size={22} color="#7C3AED" />
-              <Text className="text-[15px] text-navy font-bold ml-3" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Property Documents Vault 📁
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => Alert.alert('Payment Setup', 'Stripe Connect Payout Account: Active')}
-            className="bg-white p-4 rounded-[18px] border border-navy-border shadow-card mb-3 flex-row items-center justify-between"
-          >
-            <View className="flex-row items-center">
-              <MaterialIcons name="account-balance" size={22} color="#059669" />
-              <Text className="text-[15px] text-navy font-bold ml-3" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Stripe Bank Payout Account
-              </Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color="#94A3B8" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={handleSignOut}
-            className="bg-red-500/10 border border-red-500/30 p-4 rounded-[18px] mt-4 flex-row items-center justify-center"
-          >
-            <MaterialIcons name="logout" size={20} color="#DC2626" />
-            <Text className="text-red-600 font-bold text-[15px] ml-2" style={{ fontFamily: 'DMSans_700Bold' }}>
-              Sign Out of Rentified
-            </Text>
-          </TouchableOpacity>
+          <View className="px-5 py-5 flex-row justify-between items-center">
+            <Text className="text-base font-sans text-navy">Phone</Text>
+            <Text className="text-base font-sans text-navy-muted">{identity?.phone || '—'}</Text>
+          </View>
         </View>
-      </ScrollView>
-    </View>
+
+        <Text className="text-sm font-sansBold text-navy-muted uppercase mb-3 ml-1">Preferences</Text>
+        <View className="bg-card rounded-2xl border border-navy-border overflow-hidden mb-9">
+          <View className="px-5 py-5 border-b border-navy-border flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Feather name="bell" size={20} color="#1F2F3A" style={{ marginRight: 14 }} />
+              <Text className="text-base font-sans text-navy">Push Notifications</Text>
+            </View>
+            <Switch
+              value={notifications}
+              onValueChange={(v) => { setNotifications(v); updatePrefs({ push: v }); }}
+              trackColor={{ false: '#767577', true: '#10B981' }}
+            />
+          </View>
+          <View className="px-5 py-5 flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Feather name="mail" size={20} color="#1F2F3A" style={{ marginRight: 14 }} />
+              <Text className="text-base font-sans text-navy">Email Updates</Text>
+            </View>
+            <Switch
+              value={emails}
+              onValueChange={(v) => { setEmails(v); updatePrefs({ email: v }); }}
+              trackColor={{ false: '#767577', true: '#10B981' }}
+            />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          className="bg-card rounded-2xl border border-navy-border py-5 flex-row justify-center items-center mt-2"
+          onPress={async () => {
+            await supabase.auth.signOut();
+          }}
+        >
+          <Text className="text-base font-sansBold text-burgundy">Sign Out</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }

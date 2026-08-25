@@ -1,124 +1,130 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
-// Prospera schema: tenants table uses full_name and status
-type Tenant = {
+interface TenantRow {
   id: string;
-  full_name: string;
-  email: string;
-  phone: string | null;
-  status: string | null;
-};
+  first_name: string | null;
+  last_name: string | null;
+  payment_streak: number | null;
+  leases: {
+    id: string;
+    rent_amount: number | null;
+    status: string | null;
+    units: { unit_number: string | null; properties: { name: string | null; address: string | null } | null } | null;
+  }[];
+}
+
+function activeLease(t: TenantRow) {
+  return t.leases?.find((l) => l.status === 'active') ?? t.leases?.[0] ?? null;
+}
 
 export default function TenantsScreen() {
-  const { session } = useAuth();
-  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const { profileId } = useAuth();
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [tenants, setTenants] = useState<TenantRow[]>([]);
 
   const fetchTenants = useCallback(async () => {
+    if (!profileId) return;
     try {
-      if (!session?.user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('tenants')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(`
+          id, first_name, last_name, payment_streak,
+          leases ( id, rent_amount, status, units ( unit_number, properties ( name, address ) ) )
+        `)
+        .eq('landlord_id', profileId);
 
-      if (error) {
-        console.error('Error fetching tenants:', error.message);
-        return;
-      }
-
-      setTenants(data || []);
-    } catch (error) {
-      console.error('Unexpected error:', error);
+      // Supabase's default (ungenerated) client types every nested embed as
+      // an array regardless of FK cardinality; leases->tenants and
+      // leases->units->properties are verified to-one relationships.
+      setTenants((data || []) as unknown as TenantRow[]);
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [session]);
+  }, [profileId]);
 
-  useEffect(() => {
-    let ignore = false;
-    Promise.resolve().then(() => {
-      if (!ignore) {
-        fetchTenants();
-      }
-    });
-    return () => {
-      ignore = true;
-    };
-  }, [fetchTenants]);
+  useEffect(() => { setTimeout(() => fetchTenants(), 0); }, [fetchTenants]);
 
-  if (loading) {
-    return (
-      <View className="flex-1 bg-surface justify-center items-center">
-        <ActivityIndicator size="large" color="#4F46E5" />
-      </View>
-    );
-  }
+  const filteredTenants = tenants.filter((t) => {
+    const name = `${t.first_name ?? ''} ${t.last_name ?? ''}`.toLowerCase();
+    const lease = activeLease(t);
+    const unit = lease?.units?.unit_number?.toLowerCase() ?? '';
+    const property = lease?.units?.properties?.name?.toLowerCase() ?? lease?.units?.properties?.address?.toLowerCase() ?? '';
+    const q = search.toLowerCase();
+    return name.includes(q) || unit.includes(q) || property.includes(q);
+  });
+
+  if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
   return (
-    <ScrollView className="flex-1 bg-surface pt-12">
-      <View className="px-6 mb-6 flex-row justify-between items-center">
-        <Text className="text-2xl font-semibold text-primary tracking-tight">Tenants</Text>
-        <TouchableOpacity className="bg-brand-500 px-4 py-2 rounded-lg">
-          <Text className="text-white font-medium text-sm">+ Invite</Text>
-        </TouchableOpacity>
+    <View className="flex-1 bg-pageBg px-6 pt-16">
+      <Text className="text-3xl font-sansBold text-navy mb-8">Tenants</Text>
+
+      <View className="flex-row items-center bg-card rounded-2xl px-5 py-4 mb-8 border border-navy-border shadow-sm">
+        <Feather name="search" size={20} color="#94a3b8" />
+        <TextInput
+          className="flex-1 ml-3 font-sans text-navy"
+          placeholder="Search tenants, units, or properties..."
+          placeholderTextColor="#94a3b8"
+          value={search}
+          onChangeText={setSearch}
+        />
       </View>
 
-      <View className="px-6 pb-8">
-        {tenants.length === 0 ? (
-          <View className="bg-white border border-slate-200 rounded-xl p-8 items-center shadow-sm">
-            <Text className="text-secondary text-base mb-4 text-center">You have no active tenants.</Text>
-            <TouchableOpacity className="bg-brand-500 px-6 py-3 rounded-lg">
-              <Text className="text-white font-medium">Invite a Tenant</Text>
-            </TouchableOpacity>
+      <FlatList
+        data={filteredTenants}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View className="bg-card rounded-2xl p-10 items-center border border-navy-border">
+            <Text className="text-navy-muted font-sans text-center">
+              {tenants.length === 0 ? 'No tenants yet.' : 'No tenants match your search.'}
+            </Text>
           </View>
-        ) : (
-          tenants.map((tenant) => {
-            const initials = tenant.full_name
-              .split(' ')
-              .map((n) => n[0])
-              .slice(0, 2)
-              .join('');
-            const isActive = tenant.status === 'active';
+        }
+        renderItem={({ item }) => {
+          const lease = activeLease(item);
+          const name = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || 'Unnamed tenant';
+          const unitLabel = lease?.units?.unit_number
+            ? `${lease.units.properties?.name ?? lease.units.properties?.address ?? ''} · Unit ${lease.units.unit_number}`
+            : lease?.units?.properties?.name ?? lease?.units?.properties?.address ?? 'No unit assigned';
 
-            return (
-              <TouchableOpacity
-                key={tenant.id}
-                className="bg-white border border-slate-200 rounded-xl mb-4 p-4 shadow-sm flex-row items-center justify-between"
-                activeOpacity={0.7}
-              >
-                <View className="flex-1">
-                  <Text className="text-lg font-semibold text-primary mb-1">
-                    {tenant.full_name}
-                  </Text>
-                  <Text className="text-sm text-secondary mb-2">{tenant.email}</Text>
-
-                  <View className="flex-row items-center">
-                    <View className={`px-2 py-1 rounded ${isActive ? 'bg-emerald-100' : 'bg-amber-100'}`}>
-                      <Text className={`text-xs font-medium ${isActive ? 'text-emerald-700' : 'text-amber-700'}`}>
-                        {isActive ? 'Active' : 'Pending Invite'}
-                      </Text>
-                    </View>
+          return (
+            <View className="bg-card rounded-2xl p-5 mb-5 border border-navy-border shadow-sm flex-row justify-between items-center">
+              <View className="flex-1 pr-3">
+                <Text className="text-lg font-sansBold text-navy">{name}</Text>
+                <View className="flex-row items-center mt-2">
+                  <Feather name="home" size={14} color="#64748b" />
+                  <Text className="text-sm font-sans text-navy-muted ml-1.5">{unitLabel}</Text>
+                </View>
+                {typeof item.payment_streak === 'number' && item.payment_streak > 0 && (
+                  <View className="flex-row items-center mt-2">
+                    <Feather name="trending-up" size={14} color="#059669" />
+                    <Text className="text-sm font-sans text-navy-muted ml-1.5">{item.payment_streak}-month payment streak</Text>
                   </View>
-                </View>
-
-                <View className="w-10 h-10 bg-slate-100 rounded-full items-center justify-center">
-                  <Text className="text-brand-500 font-semibold text-lg">
-                    {initials}
+                )}
+              </View>
+              <View className="items-end">
+                <Text className="text-base font-sansBold text-navy mb-2">
+                  {lease?.rent_amount ? `$${Number(lease.rent_amount).toLocaleString()}` : '—'}
+                </Text>
+                <View className={`px-3 py-1.5 rounded-full ${lease?.status === 'active' ? 'bg-emerald-500/10' : 'bg-navy/5'}`}>
+                  <Text className={`text-xs font-sansBold ${lease?.status === 'active' ? 'text-emerald-700' : 'text-navy-muted'}`}>
+                    {lease?.status ? lease.status.charAt(0).toUpperCase() + lease.status.slice(1) : 'No lease'}
                   </Text>
                 </View>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </View>
-    </ScrollView>
+              </View>
+            </View>
+          );
+        }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+      />
+    </View>
   );
 }

@@ -1,183 +1,167 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export default function TenantHomeScreen() {
+  const { user } = useAuth();
   const router = useRouter();
-  const { role, setRole } = useAuth();
+  const [loading, setLoading] = useState(true);
+  
+  // Data states
+  const [tenant, setTenant] = useState<any>(null);
+  const [property, setProperty] = useState<any>(null);
+  const [nextPayment, setNextPayment] = useState<any>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      if (!user) return;
+      
+      try {
+        // 1. Fetch Tenant (using user_id)
+        const { data: tenantData, error: tenantErr } = await supabase
+          .from('tenants')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (tenantErr || !tenantData) {
+          console.log("No tenant profile found for this user");
+          setLoading(false);
+          return;
+        }
+        setTenant(tenantData);
+
+        // 2. Fetch Property
+        if (tenantData.property_id) {
+          const { data: propData } = await supabase
+            .from('properties')
+            .select('address, city')
+            .eq('id', tenantData.property_id)
+            .single();
+          setProperty(propData);
+        }
+
+        // 3. Fetch Next Payment (Unpaid rent)
+        const { data: payData } = await supabase
+          .from('payments')
+          .select('amount, due_date')
+          .eq('tenant_id', tenantData.id)
+          .neq('status', 'paid')
+          .order('due_date', { ascending: true })
+          .limit(1)
+          .single();
+          
+        if (payData) {
+          setNextPayment(payData);
+        }
+
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-pageBg justify-center items-center">
+        <ActivityIndicator size="large" color="#1F2F3A" />
+      </View>
+    );
+  }
+
+  // Fallback values if data is missing
+  const propertyName = property?.address || 'Property Not Assigned';
+  const amountDue = nextPayment ? `$${nextPayment.amount}` : '$0.00';
+  const dueDateStr = nextPayment ? new Date(nextPayment.due_date).toLocaleDateString() : 'All caught up';
 
   return (
-    <View className="flex-1 bg-pageBg relative">
-      {/* Background Glow */}
-      <View
-        className="absolute w-[450px] h-[450px] rounded-full"
-        style={{ top: -100, right: -120, zIndex: 0, backgroundColor: 'rgba(5, 150, 105, 0.04)' }}
-      />
-
-      <ScrollView className="flex-1 z-10" contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Header */}
-        <View className="px-6 pt-16 pb-4 bg-pageBg/90 border-b border-navy-border flex-row items-center justify-between">
-          <View>
-            <View className="flex-row items-center mb-1">
-              <Text className="text-[11px] text-navy-muted uppercase tracking-[0.12em] mr-2" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Tenant Portal
-              </Text>
-              <TouchableOpacity
-                onPress={() => setRole(role === 'landlord' ? 'tenant' : 'landlord')}
-                className="bg-navy/10 px-2.5 py-0.5 rounded-full border border-navy/20"
-              >
-                <Text className="text-[10px] text-navy font-bold uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  🔑 Tenant Mode (Tap to Switch ⚡)
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text className="text-[34px] text-navy" style={{ fontFamily: 'Cormorant_300Light' }}>
-              My Sanctuary
-            </Text>
-          </View>
-
-          <View className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 items-center justify-center">
-            <MaterialIcons name="home" size={24} color="#059669" />
-          </View>
-        </View>
-
-        <View className="px-6 mt-6">
-          {/* Main Lease Card */}
-          <View className="bg-navy rounded-[28px] p-6 border border-navy/80 shadow-card mb-6 overflow-hidden relative">
-            <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1000&q=80' }}
-              className="absolute inset-0 w-full h-full opacity-20"
-              resizeMode="cover"
-            />
-
-            <View className="flex-row justify-between items-start mb-2">
-              <Text className="text-white/60 text-[12px] uppercase tracking-[0.1em]" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Active Lease Summary
-              </Text>
-              <View className="bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/30">
-                <Text className="text-emerald-400 text-[11px] font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  Good Standing
-                </Text>
-              </View>
-            </View>
-
-            <Text className="text-white text-[28px] font-bold mb-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-              500 King St W • Unit 4B
-            </Text>
-            <Text className="text-white/70 text-[13px] mb-6" style={{ fontFamily: 'DMSans_400Regular' }}>
-              Toronto, ON M5V 2T6 • Lease Expires Sept 30, 2026
-            </Text>
-
-            <View className="flex-row justify-between pt-4 border-t border-white/10">
-              <View>
-                <Text className="text-white/50 text-[11px] uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  Monthly Rent
-                </Text>
-                <Text className="text-white text-[20px] font-bold mt-0.5" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  $2,450.00
-                </Text>
-              </View>
-
-              <View className="items-end">
-                <Text className="text-white/50 text-[11px] uppercase" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  On-Time Streak
-                </Text>
-                <Text className="text-emerald-400 text-[20px] font-bold mt-0.5" style={{ fontFamily: 'DMSans_700Bold' }}>
-                  ⚡ 12 Months
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Quick Action Grid */}
-          <Text className="text-[13px] text-navy-muted uppercase tracking-[0.08em] mb-3 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-            Tenant Quick Actions
+    <View className="flex-1 bg-pageBg">
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 24, paddingBottom: 100 }}>
+        
+        {/* Header section */}
+        <View className="mb-8 mt-4">
+          <Text className="text-navy-muted font-sans text-lg mb-1">Welcome back,</Text>
+          <Text className="text-[40px] text-navy font-sansBold leading-tight tracking-tight">
+            {tenant?.full_name?.split(' ')[0] || 'Tenant'}
           </Text>
+        </View>
 
-          <View className="flex-row gap-3 mb-3">
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/tenant-payments')}
-              className="flex-1 bg-white p-5 rounded-[22px] border border-navy-border shadow-card items-start"
-            >
-              <View className="w-11 h-11 rounded-[14px] bg-emerald-500/10 items-center justify-center mb-3">
-                <MaterialIcons name="credit-card" size={22} color="#059669" />
-              </View>
-              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Pay Rent
-              </Text>
-              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                Stripe Sheet / Apple Pay
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/tenant-maintenance')}
-              className="flex-1 bg-white p-5 rounded-[22px] border border-navy-border shadow-card items-start"
-            >
-              <View className="w-11 h-11 rounded-[14px] bg-purple-500/10 items-center justify-center mb-3">
-                <MaterialIcons name="build" size={22} color="#7C3AED" />
-              </View>
-              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Report Issue
-              </Text>
-              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                AI Triage & Dispatch
-              </Text>
-            </TouchableOpacity>
+        {/* Home Info Card */}
+        <View className="bg-card p-6 rounded-[24px] mb-8 border border-navy-border shadow-sm flex-row items-center justify-between">
+          <View>
+            <Text className="text-navy font-sansBold text-[19px] mb-1">{propertyName}</Text>
+            <Text className="text-navy-muted font-sans text-[15px]">{property?.city || ''}</Text>
           </View>
-
-          <View className="flex-row gap-3 mb-6">
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/documents')}
-              className="flex-1 bg-white p-5 rounded-[22px] border border-navy-border shadow-card items-start"
-            >
-              <View className="w-11 h-11 rounded-[14px] bg-blue-500/10 items-center justify-center mb-3">
-                <MaterialIcons name="folder" size={22} color="#2563EB" />
-              </View>
-              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                My Vault
-              </Text>
-              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                Lease PDF & Tax Receipts
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/tenant-perks')}
-              className="flex-1 bg-white p-5 rounded-[22px] border border-navy-border shadow-card items-start"
-            >
-              <View className="w-11 h-11 rounded-[14px] bg-amber-500/10 items-center justify-center mb-3">
-                <MaterialIcons name="stars" size={22} color="#D97706" />
-              </View>
-              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                VIP Perks
-              </Text>
-              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                Rewards & Credit Boost
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View className="flex-row gap-3 mb-6">
-            <TouchableOpacity
-              onPress={() => setRole('landlord')}
-              className="flex-1 bg-navy/5 p-5 rounded-[22px] border border-navy/20 items-start"
-            >
-              <View className="w-11 h-11 rounded-[14px] bg-navy/10 items-center justify-center mb-3">
-                <MaterialIcons name="swap-horiz" size={22} color="#0F1C28" />
-              </View>
-              <Text className="text-[16px] text-navy font-bold" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Switch Role
-              </Text>
-              <Text className="text-[12px] text-navy-muted mt-0.5" style={{ fontFamily: 'DMSans_400Regular' }}>
-                Return to Landlord View
-              </Text>
-            </TouchableOpacity>
+          <View className="w-12 h-12 bg-pageBg rounded-full items-center justify-center border border-navy-border">
+            <Feather name="home" size={20} color="#1F2F3A" />
           </View>
         </View>
+
+        {/* Action Grid */}
+        <View className="flex-row justify-between mb-8 gap-4">
+          
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/tenant-payments')}
+            className="flex-1 bg-navy p-5 rounded-[24px] shadow-sm justify-between min-h-[160px]"
+          >
+            <View className="w-10 h-10 bg-white/10 rounded-full items-center justify-center mb-4">
+              <Feather name="credit-card" size={20} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text className="text-white/70 font-sans text-[14px] mb-1">Next Payment</Text>
+              <Text className="text-white font-sansBold text-[24px] mb-1">{amountDue}</Text>
+              <Text className="text-white/60 font-sans text-[12px]">{dueDateStr}</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/tenant-maintenance')}
+            className="flex-1 bg-card p-5 rounded-[24px] border border-navy-border shadow-sm justify-between min-h-[160px]"
+          >
+            <View className="w-10 h-10 bg-pageBg rounded-full items-center justify-center mb-4 border border-navy-border">
+              <Feather name="tool" size={20} color="#1F2F3A" />
+            </View>
+            <View>
+              <Text className="text-navy-muted font-sans text-[14px] mb-1">Maintenance</Text>
+              <Text className="text-navy font-sansBold text-[20px] leading-tight">Request Repair</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Links */}
+        <Text className="text-[24px] text-navy font-sansBold mb-4">Quick Links</Text>
+
+        <View className="bg-card rounded-[24px] border border-navy-border shadow-sm overflow-hidden mb-4">
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/documents')}
+            className="flex-row items-center p-5 border-b border-navy-border/50"
+          >
+            <View className="w-8 h-8 bg-pageBg rounded-full items-center justify-center mr-4 border border-navy-border/50">
+              <Feather name="file-text" size={16} color="#1F2F3A" />
+            </View>
+            <Text className="text-navy font-sansBold text-[16px] flex-1">View Lease Agreement</Text>
+            <Feather name="chevron-right" size={20} color="#8B95A1" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push('/messages')}
+            className="flex-row items-center p-5"
+          >
+            <View className="w-8 h-8 bg-pageBg rounded-full items-center justify-center mr-4 border border-navy-border/50">
+              <Feather name="message-circle" size={16} color="#1F2F3A" />
+            </View>
+            <Text className="text-navy font-sansBold text-[16px] flex-1">Message Landlord</Text>
+            <Feather name="chevron-right" size={20} color="#8B95A1" />
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
     </View>
   );
