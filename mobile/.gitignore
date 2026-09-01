@@ -41,3 +41,9 @@ example
 # generated native folders
 /ios
 /android
+
+# one-off Notion import/test scripts with a hardcoded API token — never commit these
+import-everything.js
+import-notion-to-supabase.js
+import-tina-properties.js
+test-notion.js

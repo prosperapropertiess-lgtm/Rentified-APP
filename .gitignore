@@ -1,0 +1,7 @@
+# one-off Notion test scripts with a hardcoded API token — never commit these
+test-notion-prop.js
+test-notion-tenants.js
+test-notion-tina.js
+test-notion-tina-details.js
+
+.DS_Store
