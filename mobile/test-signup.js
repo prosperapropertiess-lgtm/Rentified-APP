@@ -3,7 +3,7 @@ const supabase = createClient(process.env.EXPO_PUBLIC_SUPABASE_URL, process.env.
 
 async function test() {
   const { data, error } = await supabase.auth.signUp({
-    email: 'ebinjaison123@gmail.com',
+    email: 'investor123@rentified.com',
     password: 'Password123!'
   });
   console.log('SignUp Error:', error?.message);

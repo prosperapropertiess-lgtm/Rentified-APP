@@ -42,7 +42,7 @@ export default function PropertiesList() {
           <Text className="text-navy font-sansBold text-[40px] font-bold tracking-tight">Portfolio</Text>
           <Text className="text-navy-muted font-sans text-[15px] mt-1 opacity-70">{properties.length} Active Buildings</Text>
         </View>
-        <TouchableOpacity className="w-12 h-12 bg-navy rounded-full items-center justify-center shadow-md">
+        <TouchableOpacity onPress={() => router.push('/add-property')} className="w-12 h-12 bg-navy rounded-full items-center justify-center shadow-md">
           <Feather name="plus" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -14,6 +15,7 @@ interface Identity {
 
 export default function ProfileScreen() {
   const { role, profileId } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [notifications, setNotifications] = useState(true);
@@ -52,7 +54,7 @@ export default function ProfileScreen() {
   }
 
   const name = `${identity?.first_name ?? ''} ${identity?.last_name ?? ''}`.trim() || 'Your account';
-  const roleLabel = role === 'owner' ? 'Owner' : role === 'tenant' ? 'Tenant' : '';
+  const roleLabel = role === 'owner' ? 'Owner' : role === 'tenant' ? 'Resident' : '';
 
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
@@ -104,6 +106,22 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
+
+        {role === 'owner' && (
+          <>
+            <Text className="text-sm font-sansBold text-navy-muted uppercase mb-3 ml-1">Developer</Text>
+            <TouchableOpacity
+              className="bg-card rounded-2xl border border-navy-border py-5 px-5 flex-row justify-between items-center mb-9"
+              onPress={() => router.push('/test-lab')}
+            >
+              <View className="flex-row items-center">
+                <Feather name="terminal" size={20} color="#1F2F3A" style={{ marginRight: 14 }} />
+                <Text className="text-base font-sans text-navy">Test Lab</Text>
+              </View>
+              <Feather name="chevron-right" size={18} color="#1F2F3A" style={{ opacity: 0.4 }} />
+            </TouchableOpacity>
+          </>
+        )}
 
         <TouchableOpacity
           className="bg-card rounded-2xl border border-navy-border py-5 flex-row justify-center items-center mt-2"

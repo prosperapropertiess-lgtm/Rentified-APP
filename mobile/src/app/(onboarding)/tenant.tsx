@@ -58,21 +58,10 @@ export default function TenantSetup() {
 
         if (updateError) throw updateError;
       } else {
-        // Create new tenant profile directly
-        const { error: insertError } = await supabase
-          .from('tenants')
-          .insert({
-            user_id: session.user.id,
-            landlord_id: '00000000-0000-0000-0000-000000000000', // Default pending link
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            email: session.user.email || '',
-            phone: phone.trim() || null,
-            invite_accepted: true,
-            payment_streak: 0,
-          });
-
-        if (insertError) throw insertError;
+        // No invite code: nothing to link to. A tenant row requires a real
+        // landlord_id (FK), so without an invite there's no valid landlord
+        // to attach to — surface this instead of inserting a fake link.
+        throw new Error('An invite code from your landlord is required to set up your account.');
       }
 
       // Refresh role to transition to tenant dashboard
@@ -111,7 +100,7 @@ export default function TenantSetup() {
           <View>
             <View className="mb-5">
               <Text className="text-[13px] text-navy-muted uppercase tracking-[0.08em] mb-2 ml-1" style={{ fontFamily: 'DMSans_700Bold' }}>
-                Invite Token <Text className="text-navy-muted/50 text-[11px]">(Optional)</Text>
+                Invite Token
               </Text>
               <TextInput
                 className="w-full bg-white h-[56px] rounded-[16px] px-5 border border-navy-border text-[16px] text-navy font-bold"

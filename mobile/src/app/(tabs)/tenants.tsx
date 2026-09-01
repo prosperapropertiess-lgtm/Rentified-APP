@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { money } from '../../lib/format';
@@ -24,14 +25,17 @@ function activeLease(t: TenantRow) {
 
 export default function TenantsScreen() {
   const { profileId } = useAuth();
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchTenants = useCallback(async () => {
     if (!profileId) return;
+    setLoadError(false);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('tenants')
         .select(`
           id, first_name, last_name, payment_streak,
@@ -39,12 +43,15 @@ export default function TenantsScreen() {
         `)
         .eq('landlord_id', profileId);
 
+      if (error) throw error;
+
       // Supabase's default (ungenerated) client types every nested embed as
       // an array regardless of FK cardinality; leases->tenants and
       // leases->units->properties are verified to-one relationships.
       setTenants((data || []) as unknown as TenantRow[]);
     } catch (err) {
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -65,13 +72,25 @@ export default function TenantsScreen() {
 
   return (
     <View className="flex-1 bg-pageBg px-6 pt-16">
-      <Text className="text-3xl font-sansBold text-navy mb-8">Tenants</Text>
+      <View className="flex-row items-center justify-between mb-8">
+        <Text className="text-3xl font-sansBold text-navy">Residents</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/properties')}
+          className="bg-navy px-4 py-3 rounded-2xl flex-row items-center"
+        >
+          <Feather name="user-plus" size={16} color="#FFFFFF" />
+          <Text className="text-white font-sansBold text-[13px] ml-1.5">Add Resident</Text>
+        </TouchableOpacity>
+      </View>
+      <Text className="text-navy-muted font-sans text-[13px] mb-6 -mt-4">
+        To add a resident, open a building and assign them to a vacant unit.
+      </Text>
 
       <View className="flex-row items-center bg-card rounded-2xl px-5 py-4 mb-8 border border-navy-border shadow-sm">
         <Feather name="search" size={20} color="#94a3b8" />
         <TextInput
           className="flex-1 ml-3 font-sans text-navy"
-          placeholder="Search tenants, units, or properties..."
+          placeholder="Search residents, units, or properties..."
           placeholderTextColor="#94a3b8"
           value={search}
           onChangeText={setSearch}
@@ -84,14 +103,24 @@ export default function TenantsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View className="bg-card rounded-2xl p-10 items-center border border-navy-border">
-            <Text className="text-navy-muted font-sans text-center">
-              {tenants.length === 0 ? 'No tenants yet.' : 'No tenants match your search.'}
-            </Text>
+            {loadError ? (
+              <>
+                <Feather name="wifi-off" size={22} color="#8B2030" style={{ marginBottom: 8 }} />
+                <Text className="text-navy font-sansBold text-center mb-3">Couldn&apos;t load residents</Text>
+                <TouchableOpacity onPress={() => { setLoading(true); fetchTenants(); }} className="bg-navy px-5 py-3 rounded-xl">
+                  <Text className="text-white font-sansBold text-[13px]">Try Again</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text className="text-navy-muted font-sans text-center">
+                {tenants.length === 0 ? 'No residents yet.' : 'No residents match your search.'}
+              </Text>
+            )}
           </View>
         }
         renderItem={({ item }) => {
           const lease = activeLease(item);
-          const name = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || 'Unnamed tenant';
+          const name = `${item.first_name ?? ''} ${item.last_name ?? ''}`.trim() || 'Unnamed resident';
           const unitLabel = lease?.units?.unit_number
             ? `${lease.units.properties?.name ?? lease.units.properties?.address ?? ''} · Unit ${lease.units.unit_number}`
             : lease?.units?.properties?.name ?? lease?.units?.properties?.address ?? 'No unit assigned';

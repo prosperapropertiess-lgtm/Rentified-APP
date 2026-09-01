@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'expo-router';
 import { money } from '../../lib/format';
+import NotificationsModal from '../../components/NotificationsModal';
 
 interface LeaseInfo {
   id: string;
@@ -43,11 +44,36 @@ export default function OwnerDashboard() {
   const [metrics, setMetrics] = useState({ revenue: 0, openIssues: 0, expectedRent: 0 });
   const [properties, setProperties] = useState<PropertyInfo[]>([]);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [ltbSummary, setLtbSummary] = useState({ active: 0, needsAttention: 0 });
+
+  // Kept as its own independently-failing effect, not part of the main
+  // Promise.all above — the LTB module being unreachable shouldn't take
+  // down the whole dashboard, this is a nice-to-have summary, not core data.
+  useEffect(() => {
+    if (!profileId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('ltb_notices')
+        .select('status, termination_date')
+        .eq('landlord_id', profileId)
+        .not('status', 'in', '(CLOSED,CANCELLED,VOID,RESOLVED,DRAFT,NEEDS_INFORMATION,READY_FOR_REVIEW,READY_TO_SERVE)');
+      const rows = data ?? [];
+      const needsAttention = rows.filter((n: any) => n.status === 'ELIGIBLE_FOR_APPLICATION').length;
+      setLtbSummary({ active: rows.length, needsAttention });
+    })();
+  }, [profileId]);
 
   const fetchData = useCallback(async () => {
     if (!profileId) return;
+    setLoadError(false);
     try {
-      const [{ count: issueCount }, { data: propData }, { data: payments }] = await Promise.all([
+      const [
+        { count: issueCount, error: issueError },
+        { data: propData, error: propError },
+        { data: payments, error: paymentsError },
+      ] = await Promise.all([
         supabase
           .from('maintenance_requests')
           .select('id', { count: 'exact', head: true })
@@ -62,13 +88,35 @@ export default function OwnerDashboard() {
           .eq('landlord_id', profileId),
         supabase
           .from('payments')
-          .select('amount, created_at, status, tenants(first_name, last_name)')
+          .select('amount, paid_at, created_at, status, tenants(first_name, last_name)')
           .eq('landlord_id', profileId)
           .eq('status', 'paid')
-          .order('created_at', { ascending: false }),
+          .order('paid_at', { ascending: false }),
       ]);
 
-      const revenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      // A failed fetch must not render as "you have no properties/payments"
+      // — that's indistinguishable from actually having none, and there's
+      // no way for the owner to tell the dashboard is lying vs. accurate.
+      if (issueError || propError || paymentsError) {
+        throw issueError || propError || paymentsError;
+      }
+
+      // "This month" means paid_at falls in the current calendar month —
+      // not all-time revenue (paid_at is when it was actually collected;
+      // created_at is just when the row was inserted, which for manually
+      // logged payments can be later than the real payment date).
+      // Uses UTC accessors on both sides: paid_at is stored as a UTC
+      // midnight timestamp (date-only values have no real time-of-day), so
+      // comparing it against local-timezone month/year rolls it back a day
+      // west of UTC — e.g. Aug 1 00:00 UTC reads as July 31 in US timezones.
+      const now = new Date();
+      const revenue = (payments ?? [])
+        .filter((p) => {
+          if (!p.paid_at) return false;
+          const d = new Date(p.paid_at);
+          return d.getUTCMonth() === now.getUTCMonth() && d.getUTCFullYear() === now.getUTCFullYear();
+        })
+        .reduce((sum, p) => sum + Number(p.amount), 0);
       // Supabase's default (ungenerated) client types every nested embed as
       // an array regardless of FK cardinality; units->leases->tenants and
       // units->properties are verified to-one relationships.
@@ -83,6 +131,7 @@ export default function OwnerDashboard() {
       setRecentPayments(payments?.slice(0, 3) || []);
     } catch (err) {
       console.error(err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -92,10 +141,24 @@ export default function OwnerDashboard() {
 
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
+  if (loadError) {
+    return (
+      <View className="flex-1 bg-pageBg justify-center items-center px-8">
+        <Feather name="wifi-off" size={28} color="#8B2030" />
+        <Text className="text-navy font-sansBold text-lg mt-4 mb-1 text-center">Couldn&apos;t load your dashboard</Text>
+        <Text className="text-navy-muted font-sans text-center mb-6">Check your connection and try again.</Text>
+        <TouchableOpacity onPress={() => { setLoading(true); fetchData(); }} className="bg-navy px-6 py-4 rounded-2xl">
+          <Text className="text-white font-sansBold">Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const totalUnits = properties.reduce((s, p) => s + p.units.length, 0);
   const occupiedUnits = properties.reduce((s, p) => s + p.units.filter((u) => u.status === 'occupied').length, 0);
 
   return (
+    <>
     <ScrollView className="flex-1 bg-pageBg" bounces={false}>
       {/* Header */}
       <View className="bg-navy pt-20 px-6 pb-14 rounded-b-[40px] shadow-lg">
@@ -105,9 +168,14 @@ export default function OwnerDashboard() {
             <Text className="text-white font-sansBold text-[44px] tracking-tighter">${money(metrics.revenue)}</Text>
             <Text className="text-white/50 font-sans text-[13px] mt-1">${money(metrics.expectedRent)}/mo expected across all leases</Text>
           </View>
-          <View className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
-            <Feather name="bell" size={20} color="#FFFFFF" />
-            {metrics.openIssues > 0 && <View className="absolute top-0 right-0 w-3 h-3 bg-burgundy rounded-full border-2 border-[#1F2F3A]" />}
+          <View className="flex-row items-center gap-3">
+            <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Feather name="bell" size={20} color="#FFFFFF" />
+              {metrics.openIssues > 0 && <View className="absolute top-0 right-0 w-3 h-3 bg-burgundy rounded-full border-2 border-[#1F2F3A]" />}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Feather name="user" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -169,7 +237,7 @@ export default function OwnerDashboard() {
                             </Text>
                             <Text className="text-navy-muted font-sans text-[13px] mt-0.5">
                               {lease
-                                ? `${lease.tenants?.first_name ?? ''} ${lease.tenants?.last_name ?? ''}`.trim() || 'Tenant on lease'
+                                ? `${lease.tenants?.first_name ?? ''} ${lease.tenants?.last_name ?? ''}`.trim() || 'Resident on lease'
                                 : 'Vacant'}
                             </Text>
                           </View>
@@ -184,6 +252,25 @@ export default function OwnerDashboard() {
               </TouchableOpacity>
             ))}
           </View>
+        )}
+
+        {ltbSummary.active > 0 && (
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/ltb/index' as any)}
+            className="bg-card rounded-3xl p-5 mb-12 shadow-sm border border-navy/5 active:bg-navy/5 flex-row items-center"
+          >
+            <View className="w-12 h-12 bg-navy/5 rounded-full items-center justify-center mr-4">
+              <Feather name="file-text" size={20} color="#1F2F3A" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-navy font-sansBold text-[16px]">Legal & Compliance</Text>
+              <Text className="text-navy-muted font-sans text-[13px] mt-0.5">
+                {ltbSummary.active} active notice{ltbSummary.active === 1 ? '' : 's'}
+                {ltbSummary.needsAttention > 0 ? ` · ${ltbSummary.needsAttention} eligible for next step` : ''}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={20} color="#1F2F3A" style={{ opacity: 0.3 }} />
+          </TouchableOpacity>
         )}
 
         {/* Recent Activity */}
@@ -239,5 +326,7 @@ export default function OwnerDashboard() {
         </View>
       </View>
     </ScrollView>
+    {profileId && <NotificationsModal visible={showNotifications} onClose={() => setShowNotifications(false)} profileId={profileId} />}
+    </>
   );
 }

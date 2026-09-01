@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { monthDay } from '../../lib/format';
 
 export default function TenantHomeScreen() {
   const { user } = useAuth();
@@ -34,15 +35,15 @@ export default function TenantHomeScreen() {
         }
         setTenant(tenantData);
 
-        // 2. Fetch Property
-        if (tenantData.property_id) {
-          const { data: propData } = await supabase
-            .from('properties')
-            .select('address, city')
-            .eq('id', tenantData.property_id)
-            .single();
-          setProperty(propData);
-        }
+        // 2. Fetch Property (tenants -> leases -> units -> properties;
+        // tenants has no direct property_id/unit_id column in this schema).
+        const { data: leaseData } = await supabase
+          .from('leases')
+          .select('units ( properties ( address, city ) )')
+          .eq('tenant_id', tenantData.id)
+          .limit(1)
+          .maybeSingle();
+        setProperty((leaseData as any)?.units?.properties ?? null);
 
         // 3. Fetch Next Payment (Unpaid rent)
         const { data: payData } = await supabase
@@ -79,7 +80,7 @@ export default function TenantHomeScreen() {
   // Fallback values if data is missing
   const propertyName = property?.address || 'Property Not Assigned';
   const amountDue = nextPayment ? `$${nextPayment.amount}` : '$0.00';
-  const dueDateStr = nextPayment ? new Date(nextPayment.due_date).toLocaleDateString() : 'All caught up';
+  const dueDateStr = nextPayment ? monthDay(nextPayment.due_date) : 'All caught up';
 
   return (
     <View className="flex-1 bg-pageBg">
@@ -89,7 +90,7 @@ export default function TenantHomeScreen() {
         <View className="mb-8 mt-4">
           <Text className="text-navy-muted font-sans text-lg mb-1">Welcome back,</Text>
           <Text className="text-[40px] text-navy font-sansBold leading-tight tracking-tight">
-            {tenant?.full_name?.split(' ')[0] || 'Tenant'}
+            {tenant?.first_name || 'Resident'}
           </Text>
         </View>
 

@@ -54,11 +54,18 @@ export default function TenantMaintenanceScreen() {
       }
 
       // maintenance_requests has no property_id column, and tenants has no
-      // unit_id — the unit lives on the lease.
+      // unit_id — the unit lives on the lease. Must be the tenant's real
+      // ACTIVE lease (not just any lease they've ever had) — a server-side
+      // trigger now independently re-verifies this same active-lease
+      // resolution before allowing the insert (spec C's "never trust
+      // client-supplied relationships"), so this has to match it exactly
+      // or a tenant with lease history would get wrongly rejected.
       const { data: lease } = await supabase
         .from('leases')
         .select('unit_id')
         .eq('tenant_id', tenant.id)
+        .eq('status', 'active')
+        .order('start_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 

@@ -36,7 +36,7 @@ export default function OnboardingIndex() {
               <MaterialIcons name="arrow-forward" size={20} color="rgba(15,28,40,0.3)" />
             </View>
             <Text className="text-[21px] text-navy mb-2" style={{ fontFamily: 'DMSans_700Bold' }}>
-              Property Owner
+              Property Partner
             </Text>
             <Text className="text-[15px] text-navy-muted leading-relaxed" style={{ fontFamily: 'DMSans_400Regular' }}>
               Manage properties, collect rent, track maintenance, and oversee tenants.
