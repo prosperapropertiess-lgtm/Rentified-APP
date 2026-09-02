@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import AddressAutocomplete from '../components/AddressAutocomplete';
 
 const PROPERTY_TYPES = [
   { value: 'single_family', label: 'Single Family' },
@@ -70,13 +71,19 @@ export default function AddPropertyScreen() {
         />
 
         <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Address</Text>
-        <TextInput
-          className="bg-card border border-navy-border rounded-xl p-4 font-sans text-navy mb-4"
-          placeholder="Street address"
-          placeholderTextColor="#94a3b8"
-          value={address}
-          onChangeText={setAddress}
-        />
+        <View className="mb-4">
+          <AddressAutocomplete
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Start typing an address..."
+            onPlaceSelect={(place) => {
+              setAddress(place.street_address);
+              if (place.city) setCity(place.city);
+              if (place.province) setProvince(place.province);
+              if (place.postal_code) setPostalCode(place.postal_code);
+            }}
+          />
+        </View>
 
         <View className="flex-row gap-3 mb-4">
           <View className="flex-1">

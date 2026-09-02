@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 function randomPin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -16,11 +17,28 @@ interface UnitContext {
   properties: { name: string | null; address: string | null; landlord_id: string } | null;
 }
 
+interface VacantUnitOption {
+  id: string;
+  unit_number: string | null;
+  rent_amount: number | null;
+  property_id: string;
+  properties: { name: string | null; address: string | null } | null;
+}
+
 export default function AddTenantScreen() {
-  const { unitId } = useLocalSearchParams<{ unitId: string }>();
+  const { unitId: unitIdParam } = useLocalSearchParams<{ unitId?: string }>();
+  const { profileId } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [unit, setUnit] = useState<UnitContext | null>(null);
+
+  // Opened without a specific unit (e.g. from the Residents tab's "Add
+  // Resident" button, which used to just dump the owner on the plain
+  // properties list) — show a real vacant-unit picker instead of making
+  // them go find one themselves.
+  const [pickedUnitId, setPickedUnitId] = useState<string | null>(unitIdParam ?? null);
+  const [vacantUnits, setVacantUnits] = useState<VacantUnitOption[]>([]);
+  const [loadingVacant, setLoadingVacant] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -32,18 +50,34 @@ export default function AddTenantScreen() {
   const [depositAmount, setDepositAmount] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const fetchVacantUnits = useCallback(async () => {
+    if (!profileId) return;
+    setLoadingVacant(true);
+    const { data } = await supabase
+      .from('units')
+      .select('id, unit_number, rent_amount, property_id, status, properties!inner ( name, address, landlord_id )')
+      .eq('properties.landlord_id', profileId)
+      .neq('status', 'occupied');
+    setVacantUnits((data ?? []) as unknown as VacantUnitOption[]);
+    setLoadingVacant(false);
+  }, [profileId]);
+
+  useEffect(() => {
+    if (!pickedUnitId) { setTimeout(() => fetchVacantUnits(), 0); }
+  }, [pickedUnitId, fetchVacantUnits]);
+
   const fetchUnit = useCallback(async () => {
-    if (!unitId) return;
+    if (!pickedUnitId) { setLoading(false); return; }
     const { data } = await supabase
       .from('units')
       .select('id, unit_number, rent_amount, property_id, properties ( name, address, landlord_id )')
-      .eq('id', unitId)
+      .eq('id', pickedUnitId)
       .single();
     const u = data as unknown as UnitContext | null;
     setUnit(u);
     if (u?.rent_amount) setRentAmount(String(u.rent_amount));
     setLoading(false);
-  }, [unitId]);
+  }, [pickedUnitId]);
 
   useEffect(() => { setTimeout(() => fetchUnit(), 0); }, [fetchUnit]);
 
@@ -135,6 +169,41 @@ export default function AddTenantScreen() {
       Alert.alert('Resident added', `${fullName} has been added and invited. Their login PIN is ${pin}.`);
     }
     router.back();
+  }
+
+  if (!pickedUnitId) {
+    return (
+      <View className="flex-1 bg-pageBg">
+        <View className="pt-16 px-6 pb-6 bg-card border-b border-navy-border flex-row items-center">
+          <TouchableOpacity onPress={() => router.back()} className="mr-3 w-9 h-9 rounded-full bg-pageBg border border-navy-border items-center justify-center">
+            <Feather name="chevron-left" size={20} color="#1F2F3A" />
+          </TouchableOpacity>
+          <Text className="text-xl font-sansBold text-navy">Choose a Unit</Text>
+        </View>
+        {loadingVacant ? (
+          <View className="flex-1 justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: 24 }}>
+            <Text className="text-navy-muted font-sans text-[13px] mb-4">Which vacant unit is this resident moving into?</Text>
+            {vacantUnits.length === 0 ? (
+              <View className="bg-card rounded-2xl p-8 items-center border border-navy-border">
+                <Text className="text-navy-muted font-sans text-center">No vacant units right now — every unit already has an active resident.</Text>
+              </View>
+            ) : (
+              vacantUnits.map((u) => (
+                <TouchableOpacity key={u.id} onPress={() => setPickedUnitId(u.id)} className="bg-card rounded-2xl p-4 mb-3 border border-navy-border flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-navy font-sansBold text-[15px]">{u.properties?.name ?? u.properties?.address ?? 'Property'}</Text>
+                    <Text className="text-navy-muted font-sans text-[13px] mt-0.5">{u.unit_number ? `Unit ${u.unit_number}` : 'Unit'} · Vacant</Text>
+                  </View>
+                  <Feather name="chevron-right" size={18} color="#1F2F3A" style={{ opacity: 0.4 }} />
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+        )}
+      </View>
+    );
   }
 
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;

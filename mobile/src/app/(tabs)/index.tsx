@@ -42,6 +42,7 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({ revenue: 0, openIssues: 0, expectedRent: 0 });
+  const [ownerName, setOwnerName] = useState('');
   const [properties, setProperties] = useState<PropertyInfo[]>([]);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -73,6 +74,7 @@ export default function OwnerDashboard() {
         { count: issueCount, error: issueError },
         { data: propData, error: propError },
         { data: payments, error: paymentsError },
+        { data: landlordRow },
       ] = await Promise.all([
         supabase
           .from('maintenance_requests')
@@ -92,6 +94,7 @@ export default function OwnerDashboard() {
           .eq('landlord_id', profileId)
           .eq('status', 'paid')
           .order('paid_at', { ascending: false }),
+        supabase.from('landlords').select('first_name').eq('id', profileId).maybeSingle(),
       ]);
 
       // A failed fetch must not render as "you have no properties/payments"
@@ -100,6 +103,8 @@ export default function OwnerDashboard() {
       if (issueError || propError || paymentsError) {
         throw issueError || propError || paymentsError;
       }
+
+      setOwnerName(landlordRow?.first_name ?? '');
 
       // "This month" means paid_at falls in the current calendar month —
       // not all-time revenue (paid_at is when it was actually collected;
@@ -162,6 +167,9 @@ export default function OwnerDashboard() {
     <ScrollView className="flex-1 bg-pageBg" bounces={false}>
       {/* Header */}
       <View className="bg-navy pt-20 px-6 pb-14 rounded-b-[40px] shadow-lg">
+        {!!ownerName && (
+          <Text className="text-white font-sansBold text-[22px] mb-6">Hello {ownerName}!</Text>
+        )}
         <View className="flex-row justify-between items-center mb-10">
           <View>
             <Text className="text-white/60 font-sans text-[14px] uppercase tracking-widest mb-1">Collected This Month</Text>

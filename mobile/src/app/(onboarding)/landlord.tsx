@@ -9,21 +9,21 @@ const { width, height } = Dimensions.get('window');
 
 const ONBOARDING_STEPS = [
   {
-    title: "Zero-Headache\nPortfolio System",
-    description: "We turn your rental properties into 100% passive income. You hand over the keys, we handle the rest.",
-    icon: "vpn-key",
+    title: "See Everything.\nMiss Nothing.",
+    description: "Rent status, maintenance requests, lease dates, and every document — one dashboard, updated in real time. No more piecing it together from texts and spreadsheets.",
+    icon: "visibility",
     color: "#8B2030" // Burgundy
   },
   {
-    title: "Pay for\nPerformance",
-    description: "Zero upfront fees. We only make money when you make money. No hidden markups on maintenance.",
-    icon: "trending-up",
+    title: "We Catch What\nYou'd Miss",
+    description: "Rent reminders send themselves. Appliance service dates track themselves. Legal notices are built in and done right. You stay ahead without carrying it all in your head.",
+    icon: "shield",
     color: "#1F2F3A" // Navy
   },
   {
-    title: "Complete\nTransparency",
-    description: "Track rent collection, view maintenance requests in real-time, and access all your documents in one place.",
-    icon: "insights",
+    title: "Your Whole Portfolio,\nIn Your Pocket",
+    description: "Collect rent, message residents, and handle maintenance requests from wherever you are. Property management that fits your life instead of running it.",
+    icon: "phone-iphone",
     color: "#8B2030"
   },
   {

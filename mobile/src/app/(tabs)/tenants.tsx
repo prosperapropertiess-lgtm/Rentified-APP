@@ -75,16 +75,13 @@ export default function TenantsScreen() {
       <View className="flex-row items-center justify-between mb-8">
         <Text className="text-3xl font-sansBold text-navy">Residents</Text>
         <TouchableOpacity
-          onPress={() => router.push('/(tabs)/properties')}
+          onPress={() => router.push('/add-tenant')}
           className="bg-navy px-4 py-3 rounded-2xl flex-row items-center"
         >
           <Feather name="user-plus" size={16} color="#FFFFFF" />
           <Text className="text-white font-sansBold text-[13px] ml-1.5">Add Resident</Text>
         </TouchableOpacity>
       </View>
-      <Text className="text-navy-muted font-sans text-[13px] mb-6 -mt-4">
-        To add a resident, open a building and assign them to a vacant unit.
-      </Text>
 
       <View className="flex-row items-center bg-card rounded-2xl px-5 py-4 mb-8 border border-navy-border shadow-sm">
         <Feather name="search" size={20} color="#94a3b8" />
