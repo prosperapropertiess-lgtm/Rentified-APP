@@ -1,9 +1,10 @@
 import { Stack, useRouter, useSegments, ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useColorScheme, Linking, View, Text, TouchableOpacity } from 'react-native';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 import { useFonts } from 'expo-font';
 import { Cormorant_300Light, Cormorant_400Regular } from '@expo-google-fonts/cormorant';
@@ -25,6 +26,18 @@ function RootLayoutNav() {
     DMSans_400Regular,
     DMSans_700Bold,
   });
+
+  // Swap the static native splash for the animated brand moment as soon as
+  // JS takes over, rather than leaving the plain logo up for however long
+  // fonts/auth take to resolve. splashAnimDone tracks whether the fixed
+  // animation sequence has played through; the overlay stays up until both
+  // that AND the real app (fonts + role resolved) are ready, whichever is
+  // longer, so it never gets cut off early on a slow network.
+  const [splashAnimDone, setSplashAnimDone] = useState(false);
+
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   useEffect(() => {
     if (fontError) throw fontError;
@@ -83,17 +96,26 @@ function RootLayoutNav() {
     }
   }, [session, isLoading, fontsLoaded, segments, router, role, roleError]);
 
+  // Real readiness: fonts + the auth/role check have both resolved (either
+  // to a usable role or a definitive error). The overlay stays up until
+  // this AND the animation's own fixed sequence are both done.
+  const appReady = !isLoading && fontsLoaded && (role !== null || !!roleError);
+  const showSplashOverlay = !splashAnimDone || !appReady;
+
   if (!isLoading && fontsLoaded && roleError) {
     return (
-      <View className="flex-1 bg-pageBg justify-center items-center px-8">
-        <Text className="text-navy font-sansBold text-xl mb-2 text-center">Couldn&apos;t verify your account</Text>
-        <Text className="text-navy-muted font-sans text-center mb-6">
-          Check your connection and try again. Nothing has been changed.
-        </Text>
-        <TouchableOpacity onPress={() => refreshRole()} className="bg-navy px-6 py-4 rounded-2xl">
-          <Text className="text-white font-sansBold">Try Again</Text>
-        </TouchableOpacity>
-      </View>
+      <>
+        <View className="flex-1 bg-pageBg justify-center items-center px-8">
+          <Text className="text-navy font-sansBold text-xl mb-2 text-center">Couldn&apos;t verify your account</Text>
+          <Text className="text-navy-muted font-sans text-center mb-6">
+            Check your connection and try again. Nothing has been changed.
+          </Text>
+          <TouchableOpacity onPress={() => refreshRole()} className="bg-navy px-6 py-4 rounded-2xl">
+            <Text className="text-white font-sansBold">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+        {showSplashOverlay && <AnimatedSplash onFinish={() => setSplashAnimDone(true)} />}
+      </>
     );
   }
 
@@ -104,6 +126,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
       </Stack>
+      {showSplashOverlay && <AnimatedSplash onFinish={() => setSplashAnimDone(true)} />}
     </ThemeProvider>
   );
 }
