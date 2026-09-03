@@ -8,7 +8,12 @@ import { money, monthDay } from '../../lib/format';
 import { MonthlyRevenueChart } from '../../components/MonthlyRevenueChart';
 import { calculateArrears, type PaymentLedgerRow } from '../../lib/ltb/arrearsEngine';
 
-const PAYMENT_METHODS = ['e-transfer', 'cash', 'cheque', 'other'];
+const PAYMENT_METHODS = [
+  { value: 'etransfer', label: 'E-Transfer' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'other', label: 'Other' },
+];
 
 interface LeaseOption {
   id: string;
@@ -92,7 +97,7 @@ export default function OwnerPaymentsScreen() {
   const [selectedLeaseId, setSelectedLeaseId] = useState<string | null>(null);
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
-  const [payMethod, setPayMethod] = useState('e-transfer');
+  const [payMethod, setPayMethod] = useState('etransfer');
   const [payNotes, setPayNotes] = useState('');
   const [savingPayment, setSavingPayment] = useState(false);
   const [expandedProperty, setExpandedProperty] = useState<string | null>(null);
@@ -162,7 +167,7 @@ export default function OwnerPaymentsScreen() {
     setSelectedLeaseId(leaseOptions[0]?.id ?? null);
     setPayAmount(leaseOptions[0]?.rent_amount ? String(leaseOptions[0].rent_amount) : '');
     setPayDate(new Date().toISOString().split('T')[0]);
-    setPayMethod('e-transfer');
+    setPayMethod('etransfer');
     setPayNotes('');
     setShowRecordPayment(true);
   }
@@ -456,12 +461,12 @@ export default function OwnerPaymentsScreen() {
               <View className="flex-row flex-wrap gap-2 mb-4">
                 {PAYMENT_METHODS.map((m) => (
                   <TouchableOpacity
-                    key={m}
-                    onPress={() => setPayMethod(m)}
+                    key={m.value}
+                    onPress={() => setPayMethod(m.value)}
                     className="px-3 py-1.5 rounded-full border"
-                    style={{ borderColor: payMethod === m ? '#1F2F3A' : '#D8D2C8', backgroundColor: payMethod === m ? '#1F2F3A' : 'transparent' }}
+                    style={{ borderColor: payMethod === m.value ? '#1F2F3A' : '#D8D2C8', backgroundColor: payMethod === m.value ? '#1F2F3A' : 'transparent' }}
                   >
-                    <Text className="font-sansBold text-[12px] capitalize" style={{ color: payMethod === m ? '#FFFFFF' : '#333333' }}>{m}</Text>
+                    <Text className="font-sansBold text-[12px]" style={{ color: payMethod === m.value ? '#FFFFFF' : '#333333' }}>{m.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
