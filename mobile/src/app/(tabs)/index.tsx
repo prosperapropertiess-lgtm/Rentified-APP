@@ -267,7 +267,7 @@ export default function OwnerDashboard() {
 
         {ltbSummary.active > 0 && (
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/ltb/index' as any)}
+            onPress={() => router.push('/(tabs)/ltb')}
             className="bg-card rounded-3xl p-5 mb-12 shadow-sm border border-navy/5 active:bg-navy/5 flex-row items-center"
           >
             <View className="w-12 h-12 bg-navy/5 rounded-full items-center justify-center mr-4">
