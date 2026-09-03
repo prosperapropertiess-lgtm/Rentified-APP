@@ -38,6 +38,12 @@ interface LedgerRow {
   description: string | null;
   date: string;
 }
+interface RentRow {
+  id: string;
+  amount: number;
+  paid_at: string;
+  tenants: { first_name: string | null; last_name: string | null } | null;
+}
 
 const EXPENSE_CATEGORIES = ['repairs', 'utilities', 'insurance', 'taxes', 'management', 'other'];
 
@@ -52,6 +58,7 @@ export default function PropertyDetailScreen() {
   const [property, setProperty] = useState<PropertyInfo | null>(null);
   const [expenses, setExpenses] = useState<LedgerRow[]>([]);
   const [income, setIncome] = useState<LedgerRow[]>([]);
+  const [rentPayments, setRentPayments] = useState<RentRow[]>([]);
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [expAmount, setExpAmount] = useState('');
   const [expCategory, setExpCategory] = useState('repairs');
@@ -83,9 +90,28 @@ export default function PropertyDetailScreen() {
 
     // Supabase's default (ungenerated) client types every nested embed as
     // an array regardless of FK cardinality; these are verified to-one.
-    setProperty((prop as unknown as PropertyInfo) ?? null);
+    const propData = (prop as unknown as PropertyInfo) ?? null;
+    setProperty(propData);
     setExpenses((exp || []) as LedgerRow[]);
     setIncome((inc || []) as LedgerRow[]);
+
+    // Real rent lives in payments (Record Payment / Mark Paid), not the
+    // separate income table — nothing in the app ever writes to income,
+    // so a property's real collected rent must be pulled from here or it
+    // silently shows $0 regardless of how much rent actually came in.
+    const leaseIds = (propData?.units ?? []).flatMap((u) => u.leases?.map((l) => l.id) ?? []);
+    if (leaseIds.length > 0) {
+      const { data: rent } = await supabase
+        .from('payments')
+        .select('id, amount, paid_at, tenants ( first_name, last_name )')
+        .in('lease_id', leaseIds)
+        .eq('status', 'paid')
+        .order('paid_at', { ascending: false });
+      setRentPayments((rent || []) as unknown as RentRow[]);
+    } else {
+      setRentPayments([]);
+    }
+
     setLoading(false);
   }, [id]);
 
@@ -142,7 +168,8 @@ export default function PropertyDetailScreen() {
   }
 
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
-  const totalIncome = income.reduce((s, e) => s + Number(e.amount), 0);
+  const totalRent = rentPayments.reduce((s, r) => s + Number(r.amount), 0);
+  const totalIncome = income.reduce((s, e) => s + Number(e.amount), 0) + totalRent;
   const expectedRent = property.units.reduce((s, u) => s + Number(activeLease(u)?.rent_amount ?? u.rent_amount ?? 0), 0);
 
   return (
@@ -242,21 +269,34 @@ export default function PropertyDetailScreen() {
         {/* Income */}
         <Text className="text-navy font-sansBold text-[18px] mb-4">Income</Text>
         <View className="gap-3">
-          {income.length === 0 ? (
+          {rentPayments.length === 0 && income.length === 0 ? (
             <View className="bg-card rounded-2xl p-6 items-center border border-navy-border">
               <Text className="text-navy-muted font-sans text-center">No income recorded for this property yet.</Text>
             </View>
           ) : (
-            income.map((e) => (
-              <View key={e.id} className="bg-card rounded-2xl p-4 border border-navy-border flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-navy font-sansBold text-[14px] capitalize">{e.category ?? 'Income'}</Text>
-                  {!!e.description && <Text className="text-navy-muted font-sans text-[13px] mt-0.5">{e.description}</Text>}
-                  <Text className="text-navy-muted font-sans text-[12px] mt-0.5">{monthDay(e.date)}</Text>
+            <>
+              {rentPayments.map((r) => (
+                <View key={r.id} className="bg-card rounded-2xl p-4 border border-navy-border flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-navy font-sansBold text-[14px]">
+                      Rent — {`${r.tenants?.first_name ?? ''} ${r.tenants?.last_name ?? ''}`.trim() || 'Resident'}
+                    </Text>
+                    <Text className="text-navy-muted font-sans text-[12px] mt-0.5">{monthDay(r.paid_at)}</Text>
+                  </View>
+                  <Text className="text-emerald-700 font-sansBold text-[14px]">+${money(r.amount)}</Text>
                 </View>
-                <Text className="text-emerald-700 font-sansBold text-[14px]">+${money(e.amount)}</Text>
-              </View>
-            ))
+              ))}
+              {income.map((e) => (
+                <View key={e.id} className="bg-card rounded-2xl p-4 border border-navy-border flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <Text className="text-navy font-sansBold text-[14px] capitalize">{e.category ?? 'Income'}</Text>
+                    {!!e.description && <Text className="text-navy-muted font-sans text-[13px] mt-0.5">{e.description}</Text>}
+                    <Text className="text-navy-muted font-sans text-[12px] mt-0.5">{monthDay(e.date)}</Text>
+                  </View>
+                  <Text className="text-emerald-700 font-sansBold text-[14px]">+${money(e.amount)}</Text>
+                </View>
+              ))}
+            </>
           )}
         </View>
       </ScrollView>

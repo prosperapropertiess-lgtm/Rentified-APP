@@ -401,7 +401,15 @@ export default function OwnerPaymentsScreen() {
         ) : (
           properties.map((p) => {
             const propExpected = expectedRentFor(p.units);
-            const propIncome = income.filter((i) => i.property_id === p.id).reduce((s, i) => s + Number(i.amount), 0);
+            // Real rent lives in payments, not the separate (unused) income
+            // table — nothing in the app ever writes to income, so relying
+            // on it alone silently shows $0 regardless of rent actually
+            // collected for this property.
+            const propRent = payments
+              .filter((pay) => pay.status === 'paid' && pay.leases?.units?.properties?.id === p.id)
+              .reduce((s, pay) => s + Number(pay.amount), 0);
+            const propOtherIncome = income.filter((i) => i.property_id === p.id).reduce((s, i) => s + Number(i.amount), 0);
+            const propIncome = propRent + propOtherIncome;
             const propExpenses = expenses.filter((e) => e.property_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
             const net = propIncome - propExpenses;
             return (

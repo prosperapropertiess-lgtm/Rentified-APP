@@ -85,6 +85,17 @@ export default function MaintenanceScreen() {
     fetchRequests();
   }
 
+  // Resolved/closed items disappear from the default "Open" filter the
+  // instant they're set, with no visible way back unless you already know
+  // to switch to "All" — confirm before either one so a mis-tap doesn't
+  // feel like the request vanished.
+  function confirmSetStatus(id: string, status: string, label: string) {
+    Alert.alert(`Mark ${label}?`, `This will disappear from the Open list. You can find it again under "All" and reopen it.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: label, style: status === 'closed' ? 'destructive' : 'default', onPress: () => updateRequest(id, { status }) },
+    ]);
+  }
+
   const visible = filter === 'open' ? requests.filter((r) => !['resolved', 'closed'].includes(r.status)) : requests;
 
   return (
@@ -189,23 +200,32 @@ export default function MaintenanceScreen() {
                       </View>
 
                       <View className="flex-row gap-3">
-                        {nextStatus && (
+                        {['resolved', 'closed'].includes(r.status) ? (
                           <TouchableOpacity
-                            onPress={() => updateRequest(r.id, { status: nextStatus })}
+                            onPress={() => updateRequest(r.id, { status: 'open' })}
                             className="flex-1 bg-navy py-3 rounded-xl items-center"
                           >
-                            <Text className="text-white font-sansBold text-[14px]">
-                              Mark {STATUS_LABELS[nextStatus]}
-                            </Text>
+                            <Text className="text-white font-sansBold text-[14px]">Reopen</Text>
                           </TouchableOpacity>
-                        )}
-                        {r.status !== 'closed' && (
-                          <TouchableOpacity
-                            onPress={() => updateRequest(r.id, { status: 'closed' })}
-                            className="px-4 py-3 rounded-xl items-center border border-navy-border"
-                          >
-                            <Text className="text-navy-muted font-sansBold text-[14px]">Close</Text>
-                          </TouchableOpacity>
+                        ) : (
+                          <>
+                            {nextStatus && (
+                              <TouchableOpacity
+                                onPress={() => confirmSetStatus(r.id, nextStatus, STATUS_LABELS[nextStatus])}
+                                className="flex-1 bg-navy py-3 rounded-xl items-center"
+                              >
+                                <Text className="text-white font-sansBold text-[14px]">
+                                  Mark {STATUS_LABELS[nextStatus]}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                              onPress={() => confirmSetStatus(r.id, 'closed', 'Closed')}
+                              className="px-4 py-3 rounded-xl items-center border border-navy-border"
+                            >
+                              <Text className="text-navy-muted font-sansBold text-[14px]">Close</Text>
+                            </TouchableOpacity>
+                          </>
                         )}
                       </View>
                     </View>
