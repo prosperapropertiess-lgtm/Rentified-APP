@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -20,6 +20,9 @@ export default function ProfileScreen() {
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [notifications, setNotifications] = useState(true);
   const [emails, setEmails] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const fetchIdentity = useCallback(async () => {
     if (!profileId || !role) return;
@@ -51,6 +54,23 @@ export default function ProfileScreen() {
     if (role !== 'owner' || !profileId) return; // notification_prefs only exists on landlords today
     const merged = { push: notifications, email: emails, ...next };
     await supabase.from('landlords').update({ notification_prefs: merged }).eq('id', profileId);
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    try {
+      const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+      if (error) throw error;
+      // The account (and its auth session) no longer exists server-side —
+      // sign out locally to clear the stale session and land back on
+      // role-select via the root layout's normal redirect guard.
+      await supabase.auth.signOut();
+    } catch (err: any) {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+      setDeleteConfirmText('');
+      Alert.alert('Could not delete account', err.message || 'Please try again.');
+    }
   }
 
   const name = `${identity?.first_name ?? ''} ${identity?.last_name ?? ''}`.trim() || 'Your account';
@@ -131,7 +151,56 @@ export default function ProfileScreen() {
         >
           <Text className="text-base font-sansBold text-burgundy">Sign Out</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          className="py-5 flex-row justify-center items-center mt-2"
+          onPress={() => setShowDeleteConfirm(true)}
+        >
+          <Text className="text-sm font-sans text-navy-muted" style={{ opacity: 0.6 }}>Delete Account</Text>
+        </TouchableOpacity>
       </View>
+
+      <Modal visible={showDeleteConfirm} animationType="slide" transparent onRequestClose={() => setShowDeleteConfirm(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end">
+          <View className="bg-card rounded-t-[28px] p-6" style={{ maxHeight: '85%' }}>
+            <Text className="text-navy font-sansBold text-[19px] mb-2">Delete Account</Text>
+            <Text className="text-navy-muted font-sans text-[14px] leading-relaxed mb-4">
+              {role === 'owner'
+                ? 'This permanently deletes your account and everything in it — every property, unit, resident, lease, payment record, and maintenance request you manage. This cannot be undone.'
+                : 'This permanently deletes your account, including your maintenance requests and payment history. This cannot be undone.'}
+            </Text>
+
+            <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">
+              Type DELETE to confirm
+            </Text>
+            <TextInput
+              className="bg-pageBg border border-navy-border rounded-xl p-4 font-sans text-navy mb-6"
+              placeholder="DELETE"
+              placeholderTextColor="#94a3b8"
+              autoCapitalize="characters"
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+            />
+
+            <View className="flex-row gap-3">
+              <TouchableOpacity
+                onPress={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                className="flex-1 py-4 rounded-xl items-center border border-navy-border"
+              >
+                <Text className="text-navy-muted font-sansBold text-[15px]">Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={deleteAccount}
+                disabled={deleting || deleteConfirmText !== 'DELETE'}
+                className="flex-1 bg-burgundy py-4 rounded-xl items-center"
+                style={{ opacity: deleteConfirmText !== 'DELETE' ? 0.4 : 1 }}
+              >
+                <Text className="text-white font-sansBold text-[15px]">{deleting ? 'Deleting...' : 'Delete Forever'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 }
