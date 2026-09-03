@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'rea
 import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { money } from '../../lib/format';
 import NotificationsModal from '../../components/NotificationsModal';
 
@@ -142,7 +142,10 @@ export default function OwnerDashboard() {
     }
   }, [profileId]);
 
-  useEffect(() => { setTimeout(() => fetchData(), 0); }, [fetchData]);
+  // useFocusEffect, not a plain mount-only effect — Expo Router's Tabs keep
+  // screens mounted in the background, so recording a payment on the Money
+  // tab and returning here wouldn't otherwise pick up the new total.
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
