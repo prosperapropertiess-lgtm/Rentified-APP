@@ -52,9 +52,11 @@ export default function AddressAutocomplete({ value, onChangeText, onPlaceSelect
       if (data.status === 'OK') {
         setPredictions((data.predictions ?? []).map((p: any) => ({ place_id: p.place_id, description: p.description })));
       } else {
+        console.error('AddressAutocomplete: Places API returned', data.status, data.error_message);
         setPredictions([]);
       }
-    } catch {
+    } catch (e) {
+      console.error('AddressAutocomplete: fetch failed', e);
       setPredictions([]);
     } finally {
       setLoading(false);

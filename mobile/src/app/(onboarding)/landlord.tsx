@@ -95,8 +95,16 @@ export default function LandlordSetup() {
         return;
       }
       if (error) throw error;
-      await refreshRole();
+      // Navigate BEFORE refreshing the role — the root layout's global
+      // redirect guard reacts to role changes, and if role flips to
+      // 'owner' while segments still point at /(onboarding)/landlord (not
+      // yet /import), the guard reads that as "onboarding's done" and
+      // force-redirects straight to /(tabs), skipping the import screen
+      // entirely. Navigating first means segments already say /import by
+      // the time the guard sees the new role, so its exemption for this
+      // route actually applies.
       router.replace('/(onboarding)/import');
+      await refreshRole();
     } catch (e: any) {
       console.error(e);
       Alert.alert('Error', e.message || 'Failed to create profile.');

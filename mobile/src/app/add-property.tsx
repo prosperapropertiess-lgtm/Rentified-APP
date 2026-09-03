@@ -16,7 +16,6 @@ const PROPERTY_TYPES = [
 export default function AddPropertyScreen() {
   const router = useRouter();
   const { profileId } = useAuth();
-  const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [province, setProvince] = useState('');
@@ -33,7 +32,7 @@ export default function AddPropertyScreen() {
       .from('properties')
       .insert({
         landlord_id: profileId,
-        name: name.trim() || address.trim(),
+        name: address.trim(),
         address: address.trim(),
         city: city.trim(),
         province: province.trim() || 'ON',
@@ -61,15 +60,6 @@ export default function AddPropertyScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
-        <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Property Name (optional)</Text>
-        <TextInput
-          className="bg-card border border-navy-border rounded-xl p-4 font-sans text-navy mb-4"
-          placeholder="e.g. 27 Horton Upper Unit"
-          placeholderTextColor="#94a3b8"
-          value={name}
-          onChangeText={setName}
-        />
-
         <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Address</Text>
         <View className="mb-4">
           <AddressAutocomplete
