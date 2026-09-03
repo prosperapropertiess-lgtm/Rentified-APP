@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -79,7 +79,7 @@ export default function AddTenantScreen() {
     setLoading(false);
   }, [pickedUnitId]);
 
-  useEffect(() => { setTimeout(() => fetchUnit(), 0); }, [fetchUnit]);
+  useFocusEffect(useCallback(() => { fetchUnit(); }, [fetchUnit]));
 
   const canSave = firstName.trim().length > 0 && email.trim().length > 0 && rentAmount.trim().length > 0 && !saving;
 

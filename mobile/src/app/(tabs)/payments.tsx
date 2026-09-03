@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { money, monthDay } from '../../lib/format';
@@ -146,7 +146,7 @@ export default function OwnerPaymentsScreen() {
     }
   }, [profileId]);
 
-  useEffect(() => { setTimeout(() => fetchAll(), 0); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
 
   function openMarkPaidConfirm(entry: PaymentRow) {
     if (markingPaidId) return;

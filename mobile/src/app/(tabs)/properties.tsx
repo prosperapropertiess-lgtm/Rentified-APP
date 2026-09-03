@@ -1,37 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
 export default function PropertiesList() {
-  const { user, profileId } = useAuth();
+  const { profileId } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState<any[]>([]);
 
-  useEffect(() => {
-    async function fetchProperties() {
-      if (!profileId) return;
-      try {
-        const { data } = await supabase
-          .from('properties')
-          .select(`
-            id, name, address, city,
-            units ( id, status )
-          `)
-          .eq('landlord_id', profileId);
-          
-        setProperties(data || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchProperties = useCallback(async () => {
+    if (!profileId) return;
+    try {
+      const { data } = await supabase
+        .from('properties')
+        .select(`
+          id, name, address, city,
+          units ( id, status )
+        `)
+        .eq('landlord_id', profileId);
+
+      setProperties(data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    fetchProperties();
-  }, [user]);
+  }, [profileId]);
+
+  useFocusEffect(useCallback(() => { fetchProperties(); }, [fetchProperties]));
 
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 

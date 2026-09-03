@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert, Linking } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
 import { useAuth } from '../../../../context/AuthContext';
 import { money } from '../../../../lib/format';
@@ -95,7 +95,7 @@ export default function NoticeDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { setTimeout(() => fetchAll(), 0); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
 
   async function logEvent(eventType: string, newValue: Record<string, unknown>) {
     if (!notice) return;

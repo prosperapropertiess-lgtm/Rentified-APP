@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -74,7 +74,7 @@ export default function MaintenanceScreen() {
     setLoading(false);
   }, [profileId]);
 
-  useEffect(() => { setTimeout(() => fetchRequests(), 0); }, [fetchRequests]);
+  useFocusEffect(useCallback(() => { fetchRequests(); }, [fetchRequests]));
 
   async function updateRequest(id: string, updates: Record<string, string>) {
     const { error } = await supabase.from('maintenance_requests').update(updates).eq('id', id);

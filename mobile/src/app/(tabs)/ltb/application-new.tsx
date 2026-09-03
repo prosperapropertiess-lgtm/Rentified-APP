@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
 import { money } from '../../../lib/format';
@@ -84,7 +84,7 @@ export default function ApplicationNewScreen() {
     setLoading(false);
   }, [noticeId]);
 
-  useEffect(() => { setTimeout(() => fetchAll(), 0); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
 
   if (loading || !notice) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 

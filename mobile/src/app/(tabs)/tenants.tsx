@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { money } from '../../lib/format';
@@ -57,7 +57,7 @@ export default function TenantsScreen() {
     }
   }, [profileId]);
 
-  useEffect(() => { setTimeout(() => fetchTenants(), 0); }, [fetchTenants]);
+  useFocusEffect(useCallback(() => { fetchTenants(); }, [fetchTenants]));
 
   const filteredTenants = tenants.filter((t) => {
     const name = `${t.first_name ?? ''} ${t.last_name ?? ''}`.toLowerCase();

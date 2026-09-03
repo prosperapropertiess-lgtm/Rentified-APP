@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { money, monthDay } from '../../../lib/format';
 
@@ -89,7 +89,7 @@ export default function PropertyDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { setTimeout(() => fetchAll(), 0); }, [fetchAll]);
+  useFocusEffect(useCallback(() => { fetchAll(); }, [fetchAll]));
 
   async function addExpense() {
     const amount = Number(expAmount);

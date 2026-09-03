@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -45,7 +45,7 @@ export default function ProfileScreen() {
     }
   }, [profileId, role]);
 
-  useEffect(() => { setTimeout(() => fetchIdentity(), 0); }, [fetchIdentity]);
+  useFocusEffect(useCallback(() => { fetchIdentity(); }, [fetchIdentity]));
 
   async function updatePrefs(next: { push?: boolean; email?: boolean }) {
     if (role !== 'owner' || !profileId) return; // notification_prefs only exists on landlords today
