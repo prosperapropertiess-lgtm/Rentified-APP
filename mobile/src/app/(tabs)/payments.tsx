@@ -49,6 +49,10 @@ interface LedgerEntry {
   amount: number;
 }
 
+function daysSince(dateStr: string) {
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
 function tenantName(t: { first_name: string | null; last_name: string | null } | null) {
   return `${t?.first_name ?? ''} ${t?.last_name ?? ''}`.trim() || 'Tenant';
 }
@@ -102,6 +106,8 @@ export default function OwnerPaymentsScreen() {
   const [savingPayment, setSavingPayment] = useState(false);
   const [expandedProperty, setExpandedProperty] = useState<string | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [confirmPaidEntry, setConfirmPaidEntry] = useState<PaymentRow | null>(null);
+  const [confirmPaidDate, setConfirmPaidDate] = useState('');
 
   const fetchAll = useCallback(async () => {
     if (!profileId) return;
@@ -142,18 +148,31 @@ export default function OwnerPaymentsScreen() {
 
   useEffect(() => { setTimeout(() => fetchAll(), 0); }, [fetchAll]);
 
-  const markAsPaid = async (paymentId: string) => {
-    if (markingPaidId) return; // already saving one — ignore rapid re-taps
+  function openMarkPaidConfirm(entry: PaymentRow) {
+    if (markingPaidId) return;
+    setConfirmPaidEntry(entry);
+    setConfirmPaidDate(new Date().toISOString().split('T')[0]);
+  }
+
+  // Takes the actual collection date instead of always stamping "now" —
+  // an outstanding balance is very often cleared days or weeks after it
+  // was reported (e.g. folded into a later month's payment), and silently
+  // dating it today misattributes the money to whatever month it happens
+  // to get marked in, not the month it was actually received.
+  const markAsPaid = async () => {
+    if (!confirmPaidEntry || markingPaidId) return;
+    const paymentId = confirmPaidEntry.id;
     setMarkingPaidId(paymentId);
     try {
       const { data: updated, error } = await supabase
         .from('payments')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .update({ status: 'paid', paid_at: new Date(confirmPaidDate).toISOString() })
         .eq('id', paymentId)
         .select('lease_id')
         .single();
 
       if (error) throw error;
+      setConfirmPaidEntry(null);
       await fetchAll();
       if (updated?.lease_id) checkN4VoidEligibility(updated.lease_id);
     } catch (err: any) {
@@ -308,10 +327,15 @@ export default function OwnerPaymentsScreen() {
               <View className="flex-1">
                 <Text className="text-navy font-sansBold text-[17px] mb-1.5">{tenantName(entry.tenants)}</Text>
                 <Text className="text-navy-muted font-sans text-[15px]">Due: {monthDay(entry.due_date)}</Text>
+                {daysSince(entry.due_date) >= 21 && (
+                  <Text className="text-burgundy font-sans text-[12px] mt-0.5">
+                    Outstanding {daysSince(entry.due_date)} days — check it&apos;s not already been paid another way
+                  </Text>
+                )}
                 <Text className="text-burgundy font-sansBold text-[17px] mt-1.5">${money(entry.amount)}</Text>
               </View>
               <TouchableOpacity
-                onPress={() => markAsPaid(entry.id)}
+                onPress={() => openMarkPaidConfirm(entry)}
                 disabled={markingPaidId !== null}
                 className="bg-navy px-4 py-2.5 rounded-xl"
                 style={{ opacity: markingPaidId !== null && markingPaidId !== entry.id ? 0.4 : 1, minWidth: 96, alignItems: 'center' }}
@@ -494,6 +518,49 @@ export default function OwnerPaymentsScreen() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={!!confirmPaidEntry} animationType="slide" transparent onRequestClose={() => setConfirmPaidEntry(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end">
+          <View className="bg-card rounded-t-[28px] p-6" style={{ maxHeight: '85%' }}>
+            {confirmPaidEntry && (
+              <>
+                <Text className="text-navy font-sansBold text-[19px] mb-2">Mark as Paid</Text>
+                <Text className="text-navy-muted font-sans text-[14px] mb-5">
+                  {tenantName(confirmPaidEntry.tenants)} · ${money(confirmPaidEntry.amount)} · due {monthDay(confirmPaidEntry.due_date)}
+                </Text>
+
+                <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">
+                  When was this actually paid?
+                </Text>
+                <TextInput
+                  className="bg-pageBg border border-navy-border rounded-xl p-4 font-sans text-navy mb-2"
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#94a3b8"
+                  value={confirmPaidDate}
+                  onChangeText={setConfirmPaidDate}
+                />
+                <Text className="text-navy-muted font-sans text-[12px] mb-6">
+                  If this was folded into a later payment, use that date — not today — so it counts toward the right month.
+                </Text>
+
+                <View className="flex-row gap-3">
+                  <TouchableOpacity onPress={() => setConfirmPaidEntry(null)} className="flex-1 py-4 rounded-xl items-center border border-navy-border">
+                    <Text className="text-navy-muted font-sansBold text-[15px]">Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={markAsPaid}
+                    disabled={markingPaidId !== null || !confirmPaidDate}
+                    className="flex-1 bg-navy py-4 rounded-xl items-center"
+                    style={{ opacity: !confirmPaidDate ? 0.5 : 1 }}
+                  >
+                    <Text className="text-white font-sansBold text-[15px]">{markingPaidId ? 'Saving...' : 'Confirm'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
