@@ -165,8 +165,15 @@ export default function LandlordSetup() {
         keyboardShouldPersistTaps="handled"
       >
         {ONBOARDING_STEPS.map((item, index) => (
-          <View key={index} style={{ width }} className="flex-1 px-6 justify-center">
-            
+          <ScrollView
+            key={index}
+            style={{ width }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 140 }}
+            className="px-6"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+
             <View className="w-20 h-20 rounded-3xl items-center justify-center mb-8 shadow-sm" style={{ backgroundColor: item.color + '15' }}>
               <MaterialIcons name={item.icon as any} size={40} color={item.color} />
             </View>
@@ -174,7 +181,7 @@ export default function LandlordSetup() {
             <Text className="text-[44px] text-navy leading-tight tracking-[-0.02em] mb-4" style={{ fontFamily: 'DMSans_700Bold' }}>
               {item.title}
             </Text>
-            
+
             <Text className="text-[18px] text-navy-muted leading-relaxed mb-10" style={{ fontFamily: 'DMSans_400Regular' }}>
               {item.description}
             </Text>
@@ -240,7 +247,7 @@ export default function LandlordSetup() {
                 </View>
               </View>
             )}
-          </View>
+          </ScrollView>
         ))}
       </ScrollView>
       
