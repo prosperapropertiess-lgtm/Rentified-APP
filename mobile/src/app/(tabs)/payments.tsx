@@ -201,6 +201,35 @@ export default function OwnerPaymentsScreen() {
     const lease = leaseOptions.find((l) => l.id === selectedLeaseId);
     const amount = Number(payAmount);
     if (!lease || !amount || amount <= 0 || !profileId) return;
+
+    // Prefilled amount/date make it very easy to record the same rent
+    // period twice without meaning to (re-opening this modal, forgetting
+    // it was already done). Don't block a genuine second payment for the
+    // same period — just make sure it's a deliberate choice, not a slip.
+    const { data: existing } = await supabase
+      .from('payments')
+      .select('id, amount, payment_method')
+      .eq('lease_id', lease.id)
+      .eq('due_date', payDate);
+
+    if (existing && existing.length > 0) {
+      const name = `${lease.tenants?.first_name ?? ''} ${lease.tenants?.last_name ?? ''}`.trim() || 'This resident';
+      const priorTotal = existing.reduce((sum, p) => sum + Number(p.amount), 0);
+      Alert.alert(
+        'Already recorded for this date',
+        `${name} already has ${existing.length === 1 ? 'a payment' : `${existing.length} payments`} totalling $${priorTotal.toFixed(2)} recorded for ${payDate}. Record this one too?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Record Anyway', style: 'destructive', onPress: () => doInsertPayment(lease, amount) },
+        ]
+      );
+      return;
+    }
+
+    doInsertPayment(lease, amount);
+  }
+
+  async function doInsertPayment(lease: LeaseOption, amount: number) {
     setSavingPayment(true);
     const { error } = await supabase.from('payments').insert({
       lease_id: lease.id,
