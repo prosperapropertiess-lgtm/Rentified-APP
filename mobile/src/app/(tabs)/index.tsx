@@ -209,60 +209,71 @@ export default function OwnerDashboard() {
       </View>
 
       <View className="p-6">
-        {/* Portfolio — properties, units, and who's in them, all on this screen */}
-        <Text className="text-navy font-sansBold text-[20px] mb-5 mt-4">Your Portfolio</Text>
+        {/* Portfolio — a horizontal strip of compact cards, not a full
+            unit-by-unit breakdown per property. At 15+ properties, stacking
+            every property's full unit list vertically on the home screen
+            turned this into a scroll of its own before you even reached
+            Recent Activity. Each card is just enough to see what needs
+            attention; the full breakdown already lives on the property's
+            own detail screen (one tap away) and on the Buildings tab. */}
+        <View className="flex-row items-center justify-between mb-5 mt-4">
+          <Text className="text-navy font-sansBold text-[20px]">Your Portfolio</Text>
+          {properties.length > 0 && (
+            <TouchableOpacity onPress={() => router.push('/(tabs)/properties')} className="flex-row items-center">
+              <Text className="text-navy-muted font-sansBold text-[13px] mr-1">See All ({properties.length})</Text>
+              <Feather name="chevron-right" size={16} color="#1F2F3A" style={{ opacity: 0.4 }} />
+            </TouchableOpacity>
+          )}
+        </View>
 
         {properties.length === 0 ? (
           <View className="bg-card rounded-3xl p-8 items-center justify-center border border-navy/5 mb-12">
             <Text className="text-navy-muted font-sans text-center">No properties yet. Add your first building to get started.</Text>
           </View>
         ) : (
-          <View className="mb-12">
-            {properties.map((property) => (
-              <TouchableOpacity
-                key={property.id}
-                onPress={() => router.push(`/property/${property.id}`)}
-                className="bg-card rounded-[24px] p-5 mb-5 shadow-sm border border-navy/5 active:bg-navy/5"
-              >
-                <View className="flex-row items-center justify-between mb-4">
-                  <View className="flex-1 pr-3">
-                    <Text className="text-navy font-sansBold text-[17px]">{property.name || property.address}</Text>
-                    <Text className="text-navy-muted font-sans text-[13px] mt-0.5 opacity-70">{property.city || 'Location unknown'}</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="-mx-6 mb-12"
+            contentContainerStyle={{ paddingHorizontal: 24, gap: 14 }}
+          >
+            {properties.map((property) => {
+              const occupied = property.units.filter((u) => u.status === 'occupied').length;
+              const total = property.units.length;
+              const vacant = total - occupied;
+              return (
+                <TouchableOpacity
+                  key={property.id}
+                  onPress={() => router.push(`/property/${property.id}`)}
+                  className="bg-card rounded-[24px] p-5 shadow-sm border border-navy/5 active:bg-navy/5"
+                  style={{ width: 200 }}
+                >
+                  <View
+                    className="w-9 h-9 rounded-full items-center justify-center mb-3"
+                    style={{ backgroundColor: vacant > 0 ? 'rgba(139,32,48,0.08)' : 'rgba(10,122,82,0.08)' }}
+                  >
+                    <Feather name="home" size={16} color={vacant > 0 ? '#8B2030' : '#0A7A52'} />
                   </View>
-                  <View className="bg-navy/5 px-3 py-1.5 rounded-full">
-                    <Text className="text-navy font-sansBold text-[12px] opacity-70">
-                      {property.units.filter((u) => u.status === 'occupied').length}/{property.units.length} Occupied
+                  <Text className="text-navy font-sansBold text-[15px]" numberOfLines={1}>
+                    {property.name || property.address}
+                  </Text>
+                  <Text className="text-navy-muted font-sans text-[12px] mt-0.5 opacity-70" numberOfLines={1}>
+                    {property.city || 'Location unknown'}
+                  </Text>
+                  <View className="flex-row items-center justify-between mt-4">
+                    <Text className="font-sansBold text-[13px]" style={{ color: vacant > 0 ? '#8B2030' : '#0A7A52' }}>
+                      {occupied}/{total} Occupied
                     </Text>
+                    {vacant > 0 && (
+                      <View className="bg-burgundy/10 px-2 py-0.5 rounded-full">
+                        <Text className="text-burgundy font-sansBold text-[10px]">{vacant} Vacant</Text>
+                      </View>
+                    )}
                   </View>
-                </View>
-
-                {property.units.length > 0 && (
-                  <View className="gap-2.5">
-                    {property.units.map((unit) => {
-                      const lease = activeLease(unit);
-                      return (
-                        <View key={unit.id} className="flex-row items-center justify-between bg-pageBg rounded-2xl px-4 py-3">
-                          <View className="flex-1 pr-2">
-                            <Text className="text-navy font-sansBold text-[14px]">
-                              {unit.unit_number ? `Unit ${unit.unit_number}` : 'Unit'}
-                            </Text>
-                            <Text className="text-navy-muted font-sans text-[13px] mt-0.5">
-                              {lease
-                                ? `${lease.tenants?.first_name ?? ''} ${lease.tenants?.last_name ?? ''}`.trim() || 'Resident on lease'
-                                : 'Vacant'}
-                            </Text>
-                          </View>
-                          <Text className="text-navy font-sansBold text-[14px]">
-                            ${money(lease?.rent_amount ?? unit.rent_amount)}/mo
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         )}
 
         {ltbSummary.active > 0 && (
