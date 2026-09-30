@@ -160,6 +160,31 @@ export default function AddTenantScreen() {
 
     setSaving(false);
 
+    // Best-effort landlord confirmation — separate from the tenant's own
+    // invite email above, and never blocks the save/alert flow on failure.
+    const unitLabel = unit.properties?.name || unit.properties?.address
+      ? `${unit.properties?.name ?? unit.properties?.address}${unit.unit_number ? ` · Unit ${unit.unit_number}` : ''}`
+      : `Unit ${unit.unit_number ?? ''}`;
+    supabase
+      .from('landlords')
+      .select('email, first_name')
+      .eq('id', landlordId)
+      .single()
+      .then(({ data: landlordProfile }) => {
+        if (!landlordProfile?.email) return;
+        supabase.functions
+          .invoke('notify', {
+            body: {
+              type: 'resident_added_confirm',
+              landlordEmail: landlordProfile.email,
+              landlordName: landlordProfile.first_name ?? 'there',
+              tenantName: fullName,
+              unitLabel,
+            },
+          })
+          .catch((e) => console.error('resident-added confirmation email failed', e));
+      });
+
     if (inviteError) {
       Alert.alert(
         'Resident added',

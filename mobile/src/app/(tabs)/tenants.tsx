@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -10,12 +10,13 @@ interface TenantRow {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
   payment_streak: number | null;
   leases: {
     id: string;
     rent_amount: number | null;
     status: string | null;
-    units: { unit_number: string | null; properties: { name: string | null; address: string | null } | null } | null;
+    units: { id: string; unit_number: string | null; properties: { name: string | null; address: string | null } | null } | null;
   }[];
 }
 
@@ -38,8 +39,8 @@ export default function TenantsScreen() {
       const { data, error } = await supabase
         .from('tenants')
         .select(`
-          id, first_name, last_name, payment_streak,
-          leases ( id, rent_amount, status, units ( unit_number, properties ( name, address ) ) )
+          id, first_name, last_name, email, payment_streak,
+          leases ( id, rent_amount, status, units ( id, unit_number, properties ( name, address ) ) )
         `)
         .eq('landlord_id', profileId);
 
@@ -58,6 +59,73 @@ export default function TenantsScreen() {
   }, [profileId]);
 
   useFocusEffect(useCallback(() => { fetchTenants(); }, [fetchTenants]));
+
+  const [endingLeaseId, setEndingLeaseId] = useState<string | null>(null);
+
+  // Ends the tenancy without deleting the tenant record — payment history,
+  // maintenance requests, and LTB notices all reference this tenant/lease,
+  // so a hard delete would either orphan that history or fail on a foreign
+  // key. Terminating the lease and freeing the unit is the real operation:
+  // the resident stops showing as active anywhere in the app (tenants list,
+  // property "By Property" cards, rent collection), and the unit becomes
+  // available to re-let, while every past record stays intact.
+  function confirmEndLease(tenant: TenantRow, lease: NonNullable<ReturnType<typeof activeLease>>) {
+    const name = `${tenant.first_name ?? ''} ${tenant.last_name ?? ''}`.trim() || 'This resident';
+    Alert.alert(
+      'End this lease?',
+      `${name} will no longer show as an active resident, and ${lease.units?.unit_number ? `Unit ${lease.units.unit_number}` : 'their unit'} will be marked vacant. Past payments and history are kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'End Lease',
+          style: 'destructive',
+          onPress: async () => {
+            setEndingLeaseId(lease.id);
+            const { error: leaseError } = await supabase.from('leases').update({ status: 'terminated' }).eq('id', lease.id);
+            if (leaseError) {
+              setEndingLeaseId(null);
+              Alert.alert('Could not end lease', leaseError.message);
+              return;
+            }
+            if (lease.units?.id) {
+              await supabase.from('units').update({ status: 'vacant' }).eq('id', lease.units.id);
+            }
+
+            // Best-effort dual notification — never blocks the lease
+            // ending itself, which has already succeeded by this point.
+            const unitLabel = lease.units?.properties?.name || lease.units?.properties?.address
+              ? `${lease.units?.properties?.name ?? lease.units?.properties?.address}${lease.units?.unit_number ? ` · Unit ${lease.units.unit_number}` : ''}`
+              : `Unit ${lease.units?.unit_number ?? ''}`;
+            if (profileId) {
+              supabase
+                .from('landlords')
+                .select('email, first_name')
+                .eq('id', profileId)
+                .single()
+                .then(({ data: landlordProfile }) => {
+                  if (!landlordProfile?.email) return;
+                  supabase.functions
+                    .invoke('notify', {
+                      body: {
+                        type: 'lease_ended',
+                        landlordEmail: landlordProfile.email,
+                        landlordName: landlordProfile.first_name ?? 'there',
+                        tenantEmail: tenant.email,
+                        tenantName: name,
+                        unitLabel,
+                      },
+                    })
+                    .catch((e) => console.error('lease-ended notification email failed', e));
+                });
+            }
+
+            setEndingLeaseId(null);
+            fetchTenants();
+          },
+        },
+      ]
+    );
+  }
 
   const filteredTenants = tenants.filter((t) => {
     const name = `${t.first_name ?? ''} ${t.last_name ?? ''}`.toLowerCase();
@@ -141,11 +209,22 @@ export default function TenantsScreen() {
                 <Text className="text-base font-sansBold text-navy mb-2">
                   {lease?.rent_amount ? `$${money(lease.rent_amount)}` : '—'}
                 </Text>
-                <View className={`px-3 py-1.5 rounded-full ${lease?.status === 'active' ? 'bg-emerald-500/10' : 'bg-navy/5'}`}>
+                <View className={`px-3 py-1.5 rounded-full mb-2 ${lease?.status === 'active' ? 'bg-emerald-500/10' : 'bg-navy/5'}`}>
                   <Text className={`text-xs font-sansBold ${lease?.status === 'active' ? 'text-emerald-700' : 'text-navy-muted'}`}>
                     {lease?.status ? lease.status.charAt(0).toUpperCase() + lease.status.slice(1) : 'No lease'}
                   </Text>
                 </View>
+                {lease?.status === 'active' && (
+                  <TouchableOpacity
+                    onPress={() => confirmEndLease(item, lease)}
+                    disabled={endingLeaseId === lease.id}
+                    hitSlop={8}
+                  >
+                    <Text className="text-[11px] font-sansBold text-navy-muted underline">
+                      {endingLeaseId === lease.id ? 'Ending…' : 'End Lease'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           );

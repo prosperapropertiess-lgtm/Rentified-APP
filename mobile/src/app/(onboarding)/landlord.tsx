@@ -95,6 +95,12 @@ export default function LandlordSetup() {
         return;
       }
       if (error) throw error;
+
+      // Best-effort — a failed welcome email should never block onboarding.
+      supabase.functions
+        .invoke('notify', { body: { type: 'welcome_landlord', landlordEmail: session.user.email, landlordName: firstName.trim() } })
+        .catch((e) => console.error('welcome email failed', e));
+
       // Navigate BEFORE refreshing the role — the root layout's global
       // redirect guard reacts to role changes, and if role flips to
       // 'owner' while segments still point at /(onboarding)/landlord (not

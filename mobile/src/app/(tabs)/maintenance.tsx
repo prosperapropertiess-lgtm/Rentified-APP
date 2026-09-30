@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -39,6 +39,14 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 const PRIORITY_COLORS: Record<string, string> = { low: '#64748b', medium: '#1F2F3A', high: '#B45309', urgent: '#8B2030' };
 
+interface OccupiedUnitOption {
+  id: string;
+  unit_number: string | null;
+  properties: { name: string | null; address: string | null } | null;
+  tenantId: string;
+  tenantName: string;
+}
+
 export default function MaintenanceScreen() {
   const { profileId } = useAuth();
   const router = useRouter();
@@ -47,6 +55,14 @@ export default function MaintenanceScreen() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filter, setFilter] = useState<'open' | 'all'>('open');
   const [loadError, setLoadError] = useState(false);
+
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [occupiedUnits, setOccupiedUnits] = useState<OccupiedUnitOption[]>([]);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newPriority, setNewPriority] = useState('medium');
+  const [savingItem, setSavingItem] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     if (!profileId) return;
@@ -75,6 +91,66 @@ export default function MaintenanceScreen() {
   }, [profileId]);
 
   useFocusEffect(useCallback(() => { fetchRequests(); }, [fetchRequests]));
+
+  // Only occupied units have a tenant to attach the item to — tenant_id is
+  // NOT NULL on maintenance_requests, so an owner-added item on a vacant
+  // unit isn't possible without a schema change. Not attempted here; the
+  // real ask (owner adds an item the current resident can also see) is
+  // fully covered by occupied units, which is the case that matters.
+  const fetchOccupiedUnits = useCallback(async () => {
+    if (!profileId) return;
+    const { data } = await supabase
+      .from('units')
+      .select(`
+        id, unit_number,
+        properties!inner ( name, address, landlord_id ),
+        leases ( tenant_id, status, tenants ( first_name, last_name ) )
+      `)
+      .eq('properties.landlord_id', profileId)
+      .eq('status', 'occupied');
+
+    const options: OccupiedUnitOption[] = [];
+    for (const u of (data ?? []) as any[]) {
+      const activeLease = (u.leases ?? []).find((l: any) => l.status === 'active');
+      if (!activeLease) continue;
+      options.push({
+        id: u.id,
+        unit_number: u.unit_number,
+        properties: u.properties,
+        tenantId: activeLease.tenant_id,
+        tenantName: `${activeLease.tenants?.first_name ?? ''} ${activeLease.tenants?.last_name ?? ''}`.trim() || 'Resident',
+      });
+    }
+    setOccupiedUnits(options);
+  }, [profileId]);
+
+  function openAddItem() {
+    setNewTitle(''); setNewDescription(''); setNewPriority('medium'); setSelectedUnitId(null);
+    fetchOccupiedUnits();
+    setShowAddItem(true);
+  }
+
+  async function addOwnerItem() {
+    const unit = occupiedUnits.find((u) => u.id === selectedUnitId);
+    if (!unit || !newTitle.trim() || !profileId) return;
+    setSavingItem(true);
+    const { error } = await supabase.from('maintenance_requests').insert({
+      unit_id: unit.id,
+      tenant_id: unit.tenantId,
+      landlord_id: profileId,
+      title: newTitle.trim(),
+      description: newDescription.trim() || null,
+      priority: newPriority,
+      status: 'open',
+    });
+    setSavingItem(false);
+    if (error) {
+      Alert.alert('Could not add item', error.message);
+      return;
+    }
+    setShowAddItem(false);
+    fetchRequests();
+  }
 
   async function updateRequest(id: string, updates: Record<string, string>) {
     const { error } = await supabase.from('maintenance_requests').update(updates).eq('id', id);
@@ -105,7 +181,11 @@ export default function MaintenanceScreen() {
           <TouchableOpacity onPress={() => router.back()} className="mr-3 w-9 h-9 rounded-full bg-pageBg border border-navy-border items-center justify-center">
             <Feather name="chevron-left" size={20} color="#1F2F3A" />
           </TouchableOpacity>
-          <Text className="text-2xl font-sansBold text-navy">Maintenance</Text>
+          <Text className="text-2xl font-sansBold text-navy flex-1">Maintenance</Text>
+          <TouchableOpacity onPress={openAddItem} className="flex-row items-center gap-1.5 bg-navy px-3.5 py-2 rounded-full">
+            <Feather name="plus" size={14} color="#FFFFFF" />
+            <Text className="text-white font-sansBold text-[13px]">Add Item</Text>
+          </TouchableOpacity>
         </View>
         <View className="flex-row gap-2">
           {(['open', 'all'] as const).map((f) => (
@@ -236,6 +316,91 @@ export default function MaintenanceScreen() {
           )}
         </ScrollView>
       )}
+
+      <Modal visible={showAddItem} animationType="slide" transparent onRequestClose={() => setShowAddItem(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 justify-end">
+          <View className="bg-card rounded-t-[28px] p-6" style={{ maxHeight: '85%' }}>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text className="text-navy font-sansBold text-[19px] mb-1">Add Maintenance Item</Text>
+              <Text className="text-navy-muted font-sans text-[13px] mb-5">
+                Visible to the resident on that unit, same as anything they&apos;d report themselves — good for a heads-up or a reminder you want tracked.
+              </Text>
+
+              <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Unit</Text>
+              {occupiedUnits.length === 0 ? (
+                <Text className="text-navy-muted font-sans text-[13px] mb-4">No occupied units found.</Text>
+              ) : (
+                <View className="gap-2 mb-4">
+                  {occupiedUnits.map((u) => {
+                    const label = `${u.properties?.name ?? u.properties?.address ?? ''}${u.unit_number ? ` · Unit ${u.unit_number}` : ''}`;
+                    const selected = selectedUnitId === u.id;
+                    return (
+                      <TouchableOpacity
+                        key={u.id}
+                        onPress={() => setSelectedUnitId(u.id)}
+                        className="px-4 py-3 rounded-xl border"
+                        style={{ borderColor: selected ? '#1F2F3A' : '#D8D2C8', backgroundColor: selected ? '#1F2F3A' : 'transparent' }}
+                      >
+                        <Text className="font-sansBold text-[13px]" style={{ color: selected ? '#FFFFFF' : '#1F2F3A' }}>{label}</Text>
+                        <Text className="font-sans text-[12px] mt-0.5" style={{ color: selected ? 'rgba(255,255,255,0.7)' : '#333333' }}>{u.tenantName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Title</Text>
+              <TextInput
+                className="bg-pageBg border border-navy-border rounded-xl p-4 font-sans text-navy mb-4"
+                placeholder="e.g. Furnace filter replacement"
+                placeholderTextColor="#94a3b8"
+                value={newTitle}
+                onChangeText={setNewTitle}
+              />
+
+              <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Description (optional)</Text>
+              <TextInput
+                className="bg-pageBg border border-navy-border rounded-xl p-4 font-sans text-navy mb-4"
+                placeholder="Any details worth noting"
+                placeholderTextColor="#94a3b8"
+                value={newDescription}
+                onChangeText={setNewDescription}
+                multiline
+              />
+
+              <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-2">Priority</Text>
+              <View className="flex-row gap-2 mb-6 flex-wrap">
+                {PRIORITIES.map((p) => (
+                  <TouchableOpacity
+                    key={p}
+                    onPress={() => setNewPriority(p)}
+                    className="px-3 py-1.5 rounded-full border"
+                    style={{ borderColor: newPriority === p ? PRIORITY_COLORS[p] : '#D8D2C8', backgroundColor: newPriority === p ? PRIORITY_COLORS[p] : 'transparent' }}
+                  >
+                    <Text className="font-sansBold text-[12px]" style={{ color: newPriority === p ? '#FFFFFF' : '#333333' }}>
+                      {p.charAt(0).toUpperCase() + p.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View className="flex-row gap-3 mb-2">
+                <TouchableOpacity onPress={() => setShowAddItem(false)} className="flex-1 py-4 rounded-xl items-center border border-navy-border">
+                  <Text className="text-navy-muted font-sansBold text-[15px]">Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={addOwnerItem}
+                  disabled={savingItem || !selectedUnitId || !newTitle.trim()}
+                  className="flex-1 bg-navy py-4 rounded-xl items-center"
+                  style={{ opacity: !selectedUnitId || !newTitle.trim() ? 0.5 : 1 }}
+                >
+                  <Text className="text-white font-sansBold text-[15px]">{savingItem ? 'Saving...' : 'Add Item'}</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
