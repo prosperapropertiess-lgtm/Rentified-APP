@@ -41,7 +41,8 @@
       ],
       "expo-font",
       "expo-image",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
