@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { money, monthDay } from '../../lib/format';
 import { MonthlyRevenueChart } from '../../components/MonthlyRevenueChart';
+import { IncomeExpenseBar } from '../../components/IncomeExpenseBar';
 import { calculateArrears, type PaymentLedgerRow } from '../../lib/ltb/arrearsEngine';
 
 const PAYMENT_METHODS = [
@@ -469,6 +470,25 @@ export default function OwnerPaymentsScreen() {
                     <Text className="text-navy font-sansBold text-[15px] mt-0.5">${money(net)}</Text>
                   </View>
                 </View>
+
+                <IncomeExpenseBar income={propIncome} expenses={propExpenses} />
+
+                {propIncome + propExpenses > 0 && (
+                  <View className="flex-row items-center gap-4 mt-2.5">
+                    <View className="flex-row items-center gap-1.5">
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#059669' }} />
+                      <Text className="text-navy-muted font-sans text-[11px]">
+                        {Math.round((propIncome / (propIncome + propExpenses)) * 100)}% income
+                      </Text>
+                    </View>
+                    <View className="flex-row items-center gap-1.5">
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#8B2030' }} />
+                      <Text className="text-navy-muted font-sans text-[11px]">
+                        {Math.round((propExpenses / (propIncome + propExpenses)) * 100)}% expenses
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </TouchableOpacity>
             );
           })

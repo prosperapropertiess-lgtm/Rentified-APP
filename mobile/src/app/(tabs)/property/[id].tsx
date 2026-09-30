@@ -4,6 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { money, monthDay } from '../../../lib/format';
+import { ExpenseCategoryBar } from '../../../components/ExpenseCategoryBar';
 
 // The "data broken by property" view — property detail didn't exist at all
 // before; tapping a property card in the Portfolio list did nothing.
@@ -121,7 +122,7 @@ export default function PropertyDetailScreen() {
     const amount = Number(expAmount);
     if (!amount || amount <= 0 || !property) return;
     setSaving(true);
-    await supabase.from('expenses').insert({
+    const { error } = await supabase.from('expenses').insert({
       property_id: id,
       landlord_id: property.landlord_id,
       category: expCategory,
@@ -129,10 +130,32 @@ export default function PropertyDetailScreen() {
       description: expDescription || null,
       date: new Date().toISOString().split('T')[0],
     });
+    setSaving(false);
+    if (error) {
+      Alert.alert('Could not add expense', error.message);
+      return;
+    }
     setExpAmount(''); setExpDescription(''); setExpCategory('repairs');
     setShowAddExpense(false);
-    setSaving(false);
     fetchAll();
+  }
+
+  function confirmDeleteExpense(expenseId: string) {
+    Alert.alert('Delete expense?', 'This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+          if (error) {
+            Alert.alert('Could not delete expense', error.message);
+            return;
+          }
+          fetchAll();
+        },
+      },
+    ]);
   }
 
   async function addUnit() {
@@ -201,6 +224,8 @@ export default function PropertyDetailScreen() {
           </View>
         </View>
 
+        <ExpenseCategoryBar expenses={expenses} />
+
         {/* Units */}
         <View className="flex-row items-center justify-between mb-4">
           <Text className="text-navy font-sansBold text-[18px]">Units</Text>
@@ -260,7 +285,12 @@ export default function PropertyDetailScreen() {
                   {!!e.description && <Text className="text-navy-muted font-sans text-[13px] mt-0.5">{e.description}</Text>}
                   <Text className="text-navy-muted font-sans text-[12px] mt-0.5">{monthDay(e.date)}</Text>
                 </View>
-                <Text className="text-burgundy font-sansBold text-[14px]">−${money(e.amount)}</Text>
+                <View className="flex-row items-center gap-3">
+                  <Text className="text-burgundy font-sansBold text-[14px]">−${money(e.amount)}</Text>
+                  <TouchableOpacity onPress={() => confirmDeleteExpense(e.id)} hitSlop={8}>
+                    <Feather name="trash-2" size={16} color="#94a3b8" />
+                  </TouchableOpacity>
+                </View>
               </View>
             ))
           )}
