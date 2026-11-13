@@ -6,6 +6,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { money } from '../../lib/format';
 import NotificationsModal from '../../components/NotificationsModal';
+import { useMenu } from '../../context/MenuContext';
+import { GrowBar } from '../../components/ui/Charts';
+import { progress, currentStage, phaseLabel, type Stage } from '../../lib/projects';
 
 interface LeaseInfo {
   id: string;
@@ -38,8 +41,10 @@ function activeLease(unit: UnitInfo) {
 }
 
 export default function OwnerDashboard() {
-  const { profileId } = useAuth();
+  const { profileId, isManager } = useAuth();
   const router = useRouter();
+  const { open: openMenu } = useMenu();
+  const [projects, setProjects] = useState<{ id: string; title: string; project_stages: Stage[]; project_action_items: { status: string }[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({ revenue: 0, openIssues: 0, expectedRent: 0 });
   const [ownerName, setOwnerName] = useState('');
@@ -65,6 +70,14 @@ export default function OwnerDashboard() {
       setLtbSummary({ active: rows.length, needsAttention });
     })();
   }, [profileId]);
+
+  // Active maintenance projects — like the LTB summary, a failure just hides the card.
+  useFocusEffect(useCallback(() => {
+    if (!profileId) return;
+    let q = supabase.from('maintenance_projects').select('id, title, project_stages ( * ), project_action_items ( status )').in('status', ['active', 'on_hold']).order('updated_at', { ascending: false }).limit(3);
+    if (!isManager) q = q.eq('landlord_id', profileId);
+    q.then(({ data }) => setProjects((data ?? []) as any));
+  }, [profileId, isManager]));
 
   const fetchData = useCallback(async () => {
     if (!profileId) return;
@@ -180,6 +193,9 @@ export default function OwnerDashboard() {
             <Text className="text-white/50 font-sans text-[13px] mt-1">${money(metrics.expectedRent)}/mo expected across all leases</Text>
           </View>
           <View className="flex-row items-center gap-3">
+            <TouchableOpacity onPress={openMenu} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
+              <Feather name="menu" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowNotifications(true)} className="w-12 h-12 bg-white/10 rounded-full items-center justify-center border border-white/20">
               <Feather name="bell" size={20} color="#FFFFFF" />
               {metrics.openIssues > 0 && <View className="absolute top-0 right-0 w-3 h-3 bg-burgundy rounded-full border-2 border-[#1F2F3A]" />}
@@ -198,7 +214,7 @@ export default function OwnerDashboard() {
             </View>
             <Text className="text-white font-sansBold text-[22px]">{occupiedUnits}/{totalUnits}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/maintenance')} className="bg-burgundy flex-1 rounded-3xl p-4 border border-white/10">
+          <TouchableOpacity onPress={() => router.push({ pathname: '/projects', params: { tab: 'tickets' } } as any)} className="bg-burgundy flex-1 rounded-3xl p-4 border border-white/10">
             <View className="flex-row items-center mb-2">
               <MaterialIcons name="build" size={16} color="#FFFFFF" style={{ opacity: 0.8 }} />
               <Text className="text-white/80 font-sans ml-2 text-[13px]">Requests</Text>
@@ -219,7 +235,7 @@ export default function OwnerDashboard() {
         <View className="flex-row items-center justify-between mb-5 mt-4">
           <Text className="text-navy font-sansBold text-[20px]">Your Portfolio</Text>
           {properties.length > 0 && (
-            <TouchableOpacity onPress={() => router.push('/(tabs)/properties')} className="flex-row items-center">
+            <TouchableOpacity onPress={() => router.push('/(tabs)/portfolio')} className="flex-row items-center">
               <Text className="text-navy-muted font-sansBold text-[13px] mr-1">See All ({properties.length})</Text>
               <Feather name="chevron-right" size={16} color="#1F2F3A" style={{ opacity: 0.4 }} />
             </TouchableOpacity>
@@ -274,6 +290,35 @@ export default function OwnerDashboard() {
               );
             })}
           </ScrollView>
+        )}
+
+        {projects.length > 0 && (
+          <View className="mb-12">
+            <View className="flex-row items-center justify-between mb-5">
+              <Text className="text-navy font-sansBold text-[20px]">Projects</Text>
+              <TouchableOpacity onPress={() => router.push('/projects' as any)} className="flex-row items-center">
+                <Text className="text-navy-muted font-sansBold text-[13px] mr-1">See all</Text>
+                <Feather name="chevron-right" size={16} color="#1F2F3A" style={{ opacity: 0.4 }} />
+              </TouchableOpacity>
+            </View>
+            {projects.map((pr, i) => {
+              const pct = progress(pr.project_stages);
+              const cur = currentStage(pr.project_stages);
+              const todos = pr.project_action_items.filter((a) => a.status === 'open').length;
+              return (
+                <TouchableOpacity key={pr.id} onPress={() => router.push(`/projects/${pr.id}` as any)} className="bg-card rounded-3xl p-5 mb-3 shadow-sm border border-navy/5 active:bg-navy/5">
+                  <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-navy font-sansBold text-[16px] flex-1 pr-3" numberOfLines={1}>{pr.title}</Text>
+                    {todos > 0 && (
+                      <View className="bg-burgundy px-2.5 py-1 rounded-full"><Text className="text-white font-sansBold text-[11px]">{todos} for you</Text></View>
+                    )}
+                  </View>
+                  <GrowBar value={pct / 100} color="#8B2030" height={7} delay={i * 80} />
+                  <Text className="text-navy-muted font-sans text-[12px] mt-2">{pct}% · {cur ? (cur.phase === 'work' ? cur.title : phaseLabel(cur.phase)) : 'Wrapping up'}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         )}
 
         {ltbSummary.active > 0 && (
@@ -336,13 +381,13 @@ export default function OwnerDashboard() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/documents')}
+            onPress={() => router.push('/(tabs)/vault')}
             className="bg-card rounded-3xl p-5 flex-row items-center shadow-sm border border-navy/5 active:bg-navy/5"
           >
             <View className="w-12 h-12 bg-navy/5 rounded-full items-center justify-center mr-4">
               <Feather name="file-text" size={20} color="#1F2F3A" />
             </View>
-            <Text className="text-navy font-sansBold text-[16px] flex-1">Documents</Text>
+            <Text className="text-navy font-sansBold text-[16px] flex-1">Vault</Text>
             <Feather name="chevron-right" size={20} color="#1F2F3A" style={{ opacity: 0.3 }} />
           </TouchableOpacity>
         </View>

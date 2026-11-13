@@ -11,6 +11,8 @@ type AuthContextType = {
   profileId: string | null;
   isLoading: boolean;
   roleError: boolean;
+  /** Prospera staff — can open and run projects on any owner's property. */
+  isManager: boolean;
   setRole: (role: Role) => void;
   refreshRole: () => Promise<void>;
 };
@@ -22,6 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   profileId: null,
   isLoading: true,
   roleError: false,
+  isManager: false,
   setRole: () => {},
   refreshRole: async () => {},
 });
@@ -33,12 +36,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [roleError, setRoleError] = useState(false);
+  const [isManager, setIsManager] = useState(false);
 
   const setRole = (newRole: Role) => {
     setRoleState(newRole);
   };
 
   const fetchUserRole = useCallback(async (userId: string) => {
+    // Independent of the role lookup — a failure here just means no manager tools.
+    supabase.rpc('is_manager').then(({ data }) => setIsManager(data === true));
     try {
       // 1. Check if Landlord
       const { data: landlord, error: landlordError } = await supabase.from('landlords').select('id').eq('user_id', userId).maybeSingle();
@@ -114,7 +120,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [fetchUserRole]);
 
   return (
-    <AuthContext.Provider value={{ session, user, role, profileId, isLoading, roleError, setRole, refreshRole }}>
+    <AuthContext.Provider value={{ session, user, role, profileId, isLoading, roleError, isManager, setRole, refreshRole }}>
       {children}
     </AuthContext.Provider>
   );

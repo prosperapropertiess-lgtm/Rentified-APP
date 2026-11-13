@@ -8,6 +8,14 @@ import { money, monthDay } from '../../lib/format';
 import { MonthlyRevenueChart } from '../../components/MonthlyRevenueChart';
 import { IncomeExpenseBar } from '../../components/IncomeExpenseBar';
 import { calculateArrears, type PaymentLedgerRow } from '../../lib/ltb/arrearsEngine';
+import ScreenHeader from '../../components/ScreenHeader';
+import { Ring, Donut, CountUp, GrowBar, LegendRow } from '../../components/ui/Charts';
+
+const EXPENSE_COLORS: Record<string, string> = {
+  repairs: '#1F2F3A', maintenance: '#1F2F3A', utilities: '#0E7490', insurance: '#B8860B', taxes: '#6B7280',
+  property_tax: '#6B7280', management: '#7C3AED', mortgage: '#475569', other: '#94A3B8',
+};
+const titleCase = (s: string) => s.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 const PAYMENT_METHODS = [
   { value: 'etransfer', label: 'E-Transfer' },
@@ -48,6 +56,12 @@ interface PropertyRow {
 interface LedgerEntry {
   property_id: string;
   amount: number;
+  category?: string | null;
+  date?: string | null;
+}
+
+function monthYearLabel(d: Date) {
+  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
 function daysSince(dateStr: string) {
@@ -109,6 +123,7 @@ export default function OwnerPaymentsScreen() {
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [confirmPaidEntry, setConfirmPaidEntry] = useState<PaymentRow | null>(null);
   const [confirmPaidDate, setConfirmPaidDate] = useState('');
+  const [showAllPayments, setShowAllPayments] = useState(false);
 
   const fetchAll = useCallback(async () => {
     if (!profileId) return;
@@ -127,7 +142,7 @@ export default function OwnerPaymentsScreen() {
           .from('properties')
           .select(`id, name, address, units ( rent_amount, leases ( status, rent_amount ) )`)
           .eq('landlord_id', profileId),
-        supabase.from('expenses').select('property_id, amount').eq('landlord_id', profileId),
+        supabase.from('expenses').select('property_id, amount, category, date').eq('landlord_id', profileId),
         supabase.from('income').select('property_id, amount').eq('landlord_id', profileId),
         supabase.from('leases').select('id, tenant_id, rent_amount, tenants ( first_name, last_name )').eq('landlord_id', profileId),
       ]);
@@ -313,44 +328,114 @@ export default function OwnerPaymentsScreen() {
     })
     .reduce((sum, p) => sum + Number(p.amount), 0);
 
+  const outstanding = unpaid.reduce((s, r) => s + Number(r.amount), 0);
+  const collectionRate = expectedMonthlyRent > 0 ? Math.min(1, collectedThisMonth / expectedMonthlyRent) : 0;
+
+  // On time = paid within 5 days of the due date, over the last 6 months.
+  const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1)).toISOString();
+  const recentPaid = paid.filter((p) => p.paid_at && p.due_date >= sixMonthsAgo.slice(0, 10));
+  const onTime = recentPaid.filter((p) => new Date(p.paid_at!).getTime() <= new Date(p.due_date).getTime() + 5 * 86400000).length;
+  const onTimeRate = recentPaid.length ? onTime / recentPaid.length : 0;
+
+  // This calendar year: rent in, expenses out, by category.
+  const yearStart = `${now.getUTCFullYear()}-01-01`;
+  const rentYtd = paid.filter((p) => (p.paid_at ?? '') >= yearStart).reduce((s, p) => s + Number(p.amount), 0);
+  const expYtdRows = expenses.filter((e) => (e.date ?? '') >= yearStart);
+  const expYtd = expYtdRows.reduce((s, e) => s + Number(e.amount), 0);
+  const netYtd = rentYtd - expYtd;
+  const byCategory = Array.from(
+    expYtdRows.reduce((m, e) => m.set(e.category || 'other', (m.get(e.category || 'other') ?? 0) + Number(e.amount)), new Map<string, number>())
+  ).sort((a, b) => b[1] - a[1]);
+  const donutSegments = [
+    { value: Math.max(0, netYtd), color: '#0A7A52' },
+    ...byCategory.map(([cat, amt]) => ({ value: amt, color: EXPENSE_COLORS[cat] ?? '#94A3B8' })),
+  ];
+
+  // Net per building, all time, ranked.
+  const propNet = properties.map((p) => {
+    const rent = payments.filter((pay) => pay.status === 'paid' && pay.leases?.units?.properties?.id === p.id).reduce((s, pay) => s + Number(pay.amount), 0);
+    const other = income.filter((i) => i.property_id === p.id).reduce((s, i) => s + Number(i.amount), 0);
+    const exp = expenses.filter((e) => e.property_id === p.id).reduce((s, e) => s + Number(e.amount), 0);
+    return { p, net: rent + other - exp };
+  }).sort((a, b) => b.net - a.net);
+  const maxNet = Math.max(1, ...propNet.map((x) => Math.abs(x.net)));
+
   return (
     <View className="flex-1 bg-pageBg">
-      <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 64, paddingBottom: 100 }}>
-        <Text className="text-[40px] text-navy font-sansBold mb-5">Financials</Text>
-        <TouchableOpacity
-          onPress={openRecordPayment}
-          disabled={leaseOptions.length === 0}
-          className="bg-navy py-4 rounded-2xl flex-row items-center justify-center mb-8"
-          style={{ opacity: leaseOptions.length === 0 ? 0.4 : 1 }}
-        >
-          <Feather name="plus" size={18} color="#FFFFFF" />
-          <Text className="text-white font-sansBold text-[15px] ml-2">Record Payment</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => router.push('/rent-collection')}
-          className="bg-card border border-navy-border py-4 rounded-2xl flex-row items-center justify-center mb-8"
-        >
-          <Feather name="send" size={16} color="#1F2F3A" />
-          <Text className="text-navy font-sansBold text-[14px] ml-2">Rent Collection — send reminders</Text>
-        </TouchableOpacity>
-
-        <View className="flex-row gap-4 mb-8">
-          <View className="flex-1 bg-card rounded-[20px] p-5 border border-navy-border shadow-sm">
-            <Text className="text-navy-muted font-sans text-[12px] uppercase tracking-wide">Expected / mo</Text>
-            <Text className="text-navy font-sansBold text-[22px] mt-1.5">${money(expectedMonthlyRent)}</Text>
-          </View>
-          <View className="flex-1 bg-card rounded-[20px] p-5 border border-navy-border shadow-sm">
-            <Text className="text-navy-muted font-sans text-[12px] uppercase tracking-wide">Collected this month</Text>
-            <Text className="text-navy font-sansBold text-[22px] mt-1.5">${money(collectedThisMonth)}</Text>
+      <ScreenHeader
+        title="Money"
+        subtitle={`${monthYearLabel(now)} · ${paid.length} payment${paid.length === 1 ? '' : 's'} on record`}
+        right={
+          <TouchableOpacity
+            onPress={openRecordPayment}
+            disabled={leaseOptions.length === 0}
+            className="h-11 px-4 bg-navy rounded-full flex-row items-center"
+            style={{ opacity: leaseOptions.length === 0 ? 0.4 : 1 }}
+          >
+            <Feather name="plus" size={16} color="#FFFFFF" />
+            <Text className="text-white font-sansBold text-[13px] ml-1.5">Record payment</Text>
+          </TouchableOpacity>
+        }
+      />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 120 }}>
+        {/* This month at a glance */}
+        <View className="bg-navy rounded-[28px] p-5 mb-4">
+          <View className="flex-row items-center">
+            <Ring value={collectionRate} size={124} stroke={12} color="#E8B4BC" track="rgba(255,255,255,0.12)">
+              <Text className="text-white font-sansBold text-[26px]">{Math.round(collectionRate * 100)}%</Text>
+              <Text className="text-white/50 font-sans text-[10px] uppercase tracking-widest">collected</Text>
+            </Ring>
+            <View className="flex-1 ml-5">
+              <Text className="text-white/50 font-sans text-[11px] uppercase tracking-widest">In this month</Text>
+              <CountUp value={collectedThisMonth} prefix="$" className="text-white font-sansBold text-[28px]" />
+              <Text className="text-white/50 font-sans text-[12px] mb-3">of ${money(expectedMonthlyRent).replace('.00', '')} expected</Text>
+              <View className="flex-row items-center">
+                <View className="w-2 h-2 rounded-full mr-2" style={{ backgroundColor: outstanding > 0 ? '#F59E0B' : '#34D399' }} />
+                <Text className="text-white font-sansBold text-[13px]">
+                  {outstanding > 0 ? `$${money(outstanding).replace('.00', '')} still owing` : 'Nothing owing'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
-        <MonthlyRevenueChart payments={paid} />
+        {/* Quick numbers */}
+        <View className="flex-row gap-3 mb-4">
+          <View className="flex-1 bg-card rounded-[22px] p-4 border border-navy/5 shadow-sm">
+            <Text className="text-navy-muted font-sans text-[11px] uppercase tracking-wide">Paid on time</Text>
+            <Text className="text-navy font-sansBold text-[22px] mt-1">{recentPaid.length ? `${Math.round(onTimeRate * 100)}%` : '—'}</Text>
+            <View className="mt-2"><GrowBar value={onTimeRate} color="#0A7A52" height={6} /></View>
+            <Text className="text-navy-muted font-sans text-[11px] mt-2 opacity-60">last 6 months</Text>
+          </View>
+          <View className="flex-1 bg-card rounded-[22px] p-4 border border-navy/5 shadow-sm">
+            <Text className="text-navy-muted font-sans text-[11px] uppercase tracking-wide">Net this year</Text>
+            <CountUp value={netYtd} prefix={netYtd < 0 ? '-$' : '$'} className="text-navy font-sansBold text-[22px] mt-1" style={{ color: netYtd < 0 ? '#8B2030' : '#1F2F3A' }} />
+            <Text className="text-navy-muted font-sans text-[11px] mt-2 opacity-60">${money(rentYtd).replace('.00', '')} in · ${money(expYtd).replace('.00', '')} out</Text>
+          </View>
+        </View>
 
-        <Text className="text-[22px] text-navy font-sansBold mb-5">Needs Action (Unpaid)</Text>
+        <TouchableOpacity
+          onPress={() => router.push('/rent-collection')}
+          className="bg-card border border-navy/5 rounded-[22px] p-4 flex-row items-center mb-6 shadow-sm"
+        >
+          <View className="w-10 h-10 rounded-full bg-navy/5 items-center justify-center mr-3">
+            <Feather name="send" size={16} color="#1F2F3A" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-navy font-sansBold text-[14px]">Rent reminders</Text>
+            <Text className="text-navy-muted font-sans text-[12px] opacity-70">Send or check reminders to residents</Text>
+          </View>
+          <Feather name="chevron-right" size={18} color="#1F2F3A" style={{ opacity: 0.3 }} />
+        </TouchableOpacity>
+
+        <Text className="text-[20px] text-navy font-sansBold mb-4">Needs action</Text>
         {unpaid.length === 0 ? (
-          <Text className="text-navy-muted font-sans mb-10">No unpaid rent recorded.</Text>
+          <View className="bg-card rounded-[22px] p-5 mb-6 border border-navy/5 flex-row items-center">
+            <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(10,122,82,0.1)' }}>
+              <Feather name="check" size={18} color="#0A7A52" />
+            </View>
+            <Text className="text-navy font-sansBold text-[14px] flex-1">All rent is paid up.</Text>
+          </View>
         ) : (
           unpaid.map((entry) => (
             <View key={entry.id} className="bg-card p-5 rounded-[20px] mb-5 border border-navy-border shadow-sm flex-row items-center justify-between">
@@ -380,52 +465,61 @@ export default function OwnerPaymentsScreen() {
           ))
         )}
 
-        <Text className="text-[22px] text-navy font-sansBold mb-5 mt-4">Recent Payments</Text>
-        {paid.length === 0 ? (
-          <Text className="text-navy-muted font-sans mb-10">No payments recorded yet.</Text>
-        ) : (
-          groupPaymentsByProperty(paid).map((group) => {
-            const isExpanded = expandedProperty === group.id;
-            const visible = isExpanded ? group.entries : group.entries.slice(0, 3);
-            const hiddenCount = group.entries.length - visible.length;
-            return (
-              <View key={group.id} className="mb-6">
-                <Text className="text-navy-muted font-sansBold text-[12px] uppercase tracking-wide mb-3 ml-1">{group.label}</Text>
-                {visible.map((entry) => (
-                  <View key={entry.id} className="bg-card p-5 rounded-[20px] mb-3 border border-navy-border shadow-sm flex-row items-center justify-between opacity-80">
-                    <View>
-                      <Text className="text-navy font-sansBold text-[17px] mb-1.5">{tenantName(entry.tenants)}</Text>
-                      <Text className="text-navy-muted font-sans text-[15px]">Paid: {monthDay(entry.paid_at || entry.due_date)}</Text>
-                    </View>
-                    <View className="items-end">
-                      <Text className="text-navy font-sansBold text-[17px] mb-1.5">+${money(entry.amount)}</Text>
-                      <View
-                        className="px-2.5 py-1.5 rounded-full mt-1"
-                        style={{ backgroundColor: entry.status === 'partial' ? 'rgba(217,119,6,0.1)' : 'rgba(5,150,105,0.1)' }}
-                      >
-                        <Text className="font-sansBold text-[12px]" style={{ color: entry.status === 'partial' ? '#D97706' : '#059669' }}>
-                          {entry.status === 'partial' ? 'PARTIAL' : 'PAID'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+        <TouchableOpacity
+          onPress={() => setShowAllPayments(true)}
+          disabled={paid.length === 0}
+          className="bg-card rounded-[22px] p-4 mb-6 border border-navy/5 shadow-sm flex-row items-center"
+        >
+          <View className="w-10 h-10 rounded-full items-center justify-center mr-3" style={{ backgroundColor: 'rgba(10,122,82,0.1)' }}>
+            <Feather name="list" size={16} color="#0A7A52" />
+          </View>
+          <View className="flex-1">
+            <Text className="text-navy font-sansBold text-[14px]">Recent payments</Text>
+            <Text className="text-navy-muted font-sans text-[12px] opacity-70">
+              {paid.length ? `Last: ${tenantName(paid[0].tenants)} · $${money(paid[0].amount).replace('.00', '')} · ${monthDay(paid[0].paid_at || paid[0].due_date)}` : 'No payments recorded yet'}
+            </Text>
+          </View>
+          <View className="bg-navy/5 px-2.5 py-1 rounded-full mr-2"><Text className="text-navy font-sansBold text-[12px]">{paid.length}</Text></View>
+          <Feather name="chevron-right" size={18} color="#1F2F3A" style={{ opacity: 0.3 }} />
+        </TouchableOpacity>
+
+        <MonthlyRevenueChart payments={paid} />
+
+        {/* Where the money went this year */}
+        {rentYtd + expYtd > 0 && (
+          <View className="bg-card rounded-[24px] p-5 mb-8 border border-navy/5 shadow-sm">
+            <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-4">Where the money went · {now.getUTCFullYear()}</Text>
+            <View className="flex-row items-center">
+              <Donut segments={donutSegments} size={132} stroke={16}>
+                <Text className="text-navy font-sansBold text-[18px]">{rentYtd > 0 ? `${Math.round((Math.max(0, netYtd) / rentYtd) * 100)}%` : '—'}</Text>
+                <Text className="text-navy-muted font-sans text-[10px] uppercase tracking-widest">kept</Text>
+              </Donut>
+              <View className="flex-1 ml-5">
+                <LegendRow color="#0A7A52" label="You kept" value={`$${money(Math.max(0, netYtd)).replace('.00', '')}`} />
+                {byCategory.slice(0, 4).map(([cat, amt]) => (
+                  <LegendRow key={cat} color={EXPENSE_COLORS[cat] ?? '#94A3B8'} label={titleCase(cat)} value={`$${money(amt).replace('.00', '')}`} />
                 ))}
-                {hiddenCount > 0 && (
-                  <TouchableOpacity onPress={() => setExpandedProperty(group.id)} className="items-center py-2">
-                    <Text className="text-navy-muted font-sansBold text-[13px]">Show {hiddenCount} more</Text>
-                  </TouchableOpacity>
-                )}
-                {isExpanded && group.entries.length > 3 && (
-                  <TouchableOpacity onPress={() => setExpandedProperty(null)} className="items-center py-2">
-                    <Text className="text-navy-muted font-sansBold text-[13px]">Show less</Text>
-                  </TouchableOpacity>
-                )}
               </View>
-            );
-          })
+            </View>
+          </View>
         )}
 
-        <Text className="text-[22px] text-navy font-sansBold mb-5 mt-4">By Property</Text>
+        {propNet.length > 0 && (
+          <View className="bg-card rounded-[24px] p-5 mb-8 border border-navy/5 shadow-sm">
+            <Text className="text-navy-muted font-sansBold text-[11px] uppercase tracking-wide mb-4">Best performing buildings · net all time</Text>
+            {propNet.slice(0, 6).map(({ p, net }, i) => (
+              <TouchableOpacity key={p.id} onPress={() => router.push(`/property/${p.id}`)} className="mb-3">
+                <View className="flex-row justify-between mb-1.5">
+                  <Text className="text-navy font-sansBold text-[13px] flex-1 pr-3" numberOfLines={1}>{p.name || p.address}</Text>
+                  <Text className="font-sansBold text-[13px]" style={{ color: net < 0 ? '#8B2030' : '#0A7A52' }}>{net < 0 ? '-' : ''}${money(Math.abs(net)).replace('.00', '')}</Text>
+                </View>
+                <GrowBar value={Math.abs(net) / maxNet} color={net < 0 ? '#8B2030' : '#1F2F3A'} height={7} delay={i * 70} />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        <Text className="text-[20px] text-navy font-sansBold mb-4">By building</Text>
         {properties.length === 0 ? (
           <Text className="text-navy-muted font-sans">No properties yet.</Text>
         ) : (
@@ -620,6 +714,65 @@ export default function OwnerPaymentsScreen() {
             )}
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+      <Modal visible={showAllPayments} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowAllPayments(false)}>
+        <View className="flex-1 bg-pageBg">
+          <View className="flex-row items-center justify-between px-6 pt-6 pb-4">
+            <View>
+              <Text className="text-navy font-sansBold text-[24px]">Recent payments</Text>
+              <Text className="text-navy-muted font-sans text-[13px] opacity-70">{paid.length} payments, grouped by building</Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowAllPayments(false)} className="w-10 h-10 rounded-full bg-navy/5 items-center justify-center">
+              <Feather name="x" size={18} color="#1F2F3A" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48 }}>
+        {paid.length === 0 ? (
+          <Text className="text-navy-muted font-sans mb-10">No payments recorded yet.</Text>
+        ) : (
+          groupPaymentsByProperty(paid).map((group) => {
+            const isExpanded = expandedProperty === group.id;
+            const visible = isExpanded ? group.entries : group.entries.slice(0, 3);
+            const hiddenCount = group.entries.length - visible.length;
+            return (
+              <View key={group.id} className="mb-6">
+                <Text className="text-navy-muted font-sansBold text-[12px] uppercase tracking-wide mb-3 ml-1">{group.label}</Text>
+                {visible.map((entry) => (
+                  <View key={entry.id} className="bg-card p-5 rounded-[20px] mb-3 border border-navy-border shadow-sm flex-row items-center justify-between opacity-80">
+                    <View>
+                      <Text className="text-navy font-sansBold text-[17px] mb-1.5">{tenantName(entry.tenants)}</Text>
+                      <Text className="text-navy-muted font-sans text-[15px]">Paid: {monthDay(entry.paid_at || entry.due_date)}</Text>
+                    </View>
+                    <View className="items-end">
+                      <Text className="text-navy font-sansBold text-[17px] mb-1.5">+${money(entry.amount)}</Text>
+                      <View
+                        className="px-2.5 py-1.5 rounded-full mt-1"
+                        style={{ backgroundColor: entry.status === 'partial' ? 'rgba(217,119,6,0.1)' : 'rgba(5,150,105,0.1)' }}
+                      >
+                        <Text className="font-sansBold text-[12px]" style={{ color: entry.status === 'partial' ? '#D97706' : '#059669' }}>
+                          {entry.status === 'partial' ? 'PARTIAL' : 'PAID'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+                {hiddenCount > 0 && (
+                  <TouchableOpacity onPress={() => setExpandedProperty(group.id)} className="items-center py-2">
+                    <Text className="text-navy-muted font-sansBold text-[13px]">Show {hiddenCount} more</Text>
+                  </TouchableOpacity>
+                )}
+                {isExpanded && group.entries.length > 3 && (
+                  <TouchableOpacity onPress={() => setExpandedProperty(null)} className="items-center py-2">
+                    <Text className="text-navy-muted font-sansBold text-[13px]">Show less</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+          })
+        )}
+
+          </ScrollView>
+        </View>
       </Modal>
     </View>
   );

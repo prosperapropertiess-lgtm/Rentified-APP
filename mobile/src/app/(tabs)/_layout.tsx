@@ -3,6 +3,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { Feather } from '@expo/vector-icons';
+import { MenuProvider } from '../../context/MenuContext';
 
 export default function TabLayout() {
   const { role, isLoading } = useAuth();
@@ -70,21 +71,32 @@ export default function TabLayout() {
         <Tabs.Screen name="ltb/application-new" options={{ href: null }} />
         <Tabs.Screen name="ltb/notice/[id]" options={{ href: null }} />
 
+        <Tabs.Screen name="portfolio" options={{ href: null }} />
+        <Tabs.Screen name="vault" options={{ href: null }} />
+        <Tabs.Screen name="projects/index" options={{ href: null }} />
+        <Tabs.Screen name="projects/[id]" options={{ href: null }} />
+
         {/* Reachable but not tab-bar items — kept as Tabs children so the bar stays visible */}
         <Tabs.Screen name="messages" options={{ href: null }} />
       </Tabs>
     );
   }
 
-  // Default to Owner
+  // Default to Owner: five daily tabs; everything else lives in the side menu.
   return (
+    <MenuProvider>
     <Tabs screenOptions={screenOptions}>
       <Tabs.Screen name="index" options={{ title: 'Command', tabBarIcon: ({ color }) => <Feather name="grid" size={20} color={color} /> }} />
-      <Tabs.Screen name="properties" options={{ title: 'Buildings', tabBarIcon: ({ color }) => <Feather name="home" size={20} color={color} /> }} />
-      <Tabs.Screen name="tenants" options={{ title: 'Residents', tabBarIcon: ({ color }) => <Feather name="users" size={20} color={color} /> }} />
+      <Tabs.Screen name="portfolio" options={{ title: 'Portfolio', tabBarIcon: ({ color }) => <Feather name="home" size={20} color={color} /> }} />
       <Tabs.Screen name="payments" options={{ title: 'Money', tabBarIcon: ({ color }) => <Feather name="dollar-sign" size={20} color={color} /> }} />
-      <Tabs.Screen name="property-health" options={{ title: 'Health', tabBarIcon: ({ color }) => <Feather name="activity" size={20} color={color} /> }} />
-      <Tabs.Screen name="ltb/index" options={{ title: 'Legal', tabBarIcon: ({ color }) => <Feather name="file-text" size={20} color={color} /> }} />
+      <Tabs.Screen name="projects/index" options={{ title: 'Maintenance', tabBarIcon: ({ color }) => <Feather name="tool" size={20} color={color} /> }} />
+      <Tabs.Screen name="vault" options={{ title: 'Vault', tabBarIcon: ({ color }) => <Feather name="lock" size={20} color={color} /> }} />
+
+      <Tabs.Screen name="projects/[id]" options={{ href: null }} />
+      <Tabs.Screen name="properties" options={{ href: null }} />
+      <Tabs.Screen name="tenants" options={{ href: null }} />
+      <Tabs.Screen name="property-health" options={{ href: null }} />
+      <Tabs.Screen name="ltb/index" options={{ href: null }} />
 
       {/* Notices & LTB sub-screens — reachable but not their own tab slot */}
       <Tabs.Screen name="ltb/create" options={{ href: null }} />
@@ -126,5 +138,6 @@ export default function TabLayout() {
       <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="property/[id]" options={{ href: null }} />
     </Tabs>
+    </MenuProvider>
   );
 }

@@ -24,7 +24,8 @@ function activeLease(t: TenantRow) {
   return t.leases?.find((l) => l.status === 'active') ?? t.leases?.[0] ?? null;
 }
 
-export default function TenantsScreen() {
+// Rendered inside the Portfolio tab (embedded) and still reachable on its own.
+export default function TenantsScreen({ embedded = false }: { embedded?: boolean }) {
   const { profileId } = useAuth();
   const router = useRouter();
   const [search, setSearch] = useState('');
@@ -139,9 +140,9 @@ export default function TenantsScreen() {
   if (loading) return <View className="flex-1 bg-pageBg justify-center items-center"><ActivityIndicator color="#1F2F3A" /></View>;
 
   return (
-    <View className="flex-1 bg-pageBg px-6 pt-16">
-      <View className="flex-row items-center justify-between mb-8">
-        <Text className="text-3xl font-sansBold text-navy">Residents</Text>
+    <View className={`flex-1 bg-pageBg px-6 ${embedded ? 'pt-2' : 'pt-16'}`}>
+      <View className={`flex-row items-center justify-between ${embedded ? 'mb-4' : 'mb-8'}`}>
+        <Text className={`${embedded ? 'text-[15px] text-navy-muted' : 'text-3xl text-navy'} font-sansBold`}>{embedded ? `${tenants.length} resident${tenants.length === 1 ? '' : 's'}` : 'Residents'}</Text>
         <TouchableOpacity
           onPress={() => router.push('/add-tenant')}
           className="bg-navy px-4 py-3 rounded-2xl flex-row items-center"
@@ -151,7 +152,7 @@ export default function TenantsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View className="flex-row items-center bg-card rounded-2xl px-5 py-4 mb-8 border border-navy-border shadow-sm">
+      <View className={`flex-row items-center bg-card rounded-2xl px-5 py-4 ${embedded ? 'mb-5' : 'mb-8'} border border-navy-border shadow-sm`}>
         <Feather name="search" size={20} color="#94a3b8" />
         <TextInput
           className="flex-1 ml-3 font-sans text-navy"
@@ -229,7 +230,7 @@ export default function TenantsScreen() {
             </View>
           );
         }}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: embedded ? 110 : 24 }}
       />
     </View>
   );
